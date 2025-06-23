@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  youtube-dj:
+    image: registry.hwida.com/youtube-dj:latest
+    container_name: youtube-dj
+    restart: always
+    ports:
+      - "8800:3000"
+      - "8801:3001"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SOCKET_URL=http://localhost:8801
+    # 필요시 환경변수, 볼륨, 네트워크 등 추가 가능 
