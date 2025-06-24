@@ -6,6 +6,7 @@
     "dev": "next dev",
     "dev:server": "node server.js",
     "dev:socket": "node socket-server.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:socket\"",
     "build": "next build",
     "start": "next start",
     "start:server": "NODE_ENV=production node server.js",
@@ -28,6 +29,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^8.2.2",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
     "typescript": "^5"

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { socket } from '../lib/socket';
-import { useRouter } from 'next/navigation';
 import YouTube from 'react-youtube';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -56,7 +55,6 @@ export default function YouTubeDJ() {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const listenersRegisteredRef = useRef(false);
   const processedSongsRef = useRef<Set<string>>(new Set());
-  const router = useRouter();
 
   useEffect(() => {
     // 이미 리스너가 등록된 경우 중복 등록 방지
@@ -216,7 +214,7 @@ export default function YouTubeDJ() {
               variant="contained"
               color="primary"
               startIcon={<AddIcon />}
-              onClick={() => router.push('/request')}
+              onClick={() => window.open('/request', '_blank')}
               size="large"
             >
               신청곡 등록
@@ -506,7 +504,7 @@ export default function YouTubeDJ() {
                 variant="outlined"
                 color="primary"
                 startIcon={<AddIcon />}
-                onClick={() => router.push('/request')}
+                onClick={() => window.open('/request', '_blank')}
               >
                 첫 번째 신청곡 등록하기
               </Button>
