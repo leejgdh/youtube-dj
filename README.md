@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# YouTube DJ
 
-## Getting Started
+Next.js + Socket.IO 기반 유튜브 신청곡/재생 프로젝트
 
-First, run the development server:
+## 개발 환경 실행
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- 웹: http://localhost:3000
+- 소켓 서버: http://localhost:3001
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Docker 이미지 빌드 및 배포
 
-## Learn More
+### 1. **빌드타임 환경변수 설정**
+- 소켓 서버 주소는 클라이언트 번들에 하드코딩되므로, 반드시 **빌드 시점**에 환경변수로 지정해야 합니다.
+- 예시: 홈서버 IP가 `192.168.0.45`, 소켓 포트가 `8801`일 때
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+docker build --build-arg NEXT_PUBLIC_SOCKET_URL=http://192.168.0.45:8801 -t registry.hwida.com/youtube-dj:latest .
+docker push registry.hwida.com/youtube-dj:latest
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 2. **docker-compose.yml 예시**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```yaml
+version: "3.8"
 
-## Deploy on Vercel
+services:
+  youtube-dj:
+    image: registry.hwida.com/youtube-dj:latest
+    container_name: youtube-dj
+    restart: always
+    ports:
+      - "8800:3000"   # Next.js 웹
+      - "8801:3001"   # 소켓 서버
+    environment:
+      - NODE_ENV=production
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 3. **서버에서 실행**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+docker-compose up -d
+```
+
+- 웹: http://192.168.0.45:8800
+- 소켓: http://192.168.0.45:8801
+
+---
+
+## 주의사항
+- **NEXT_PUBLIC_SOCKET_URL**은 반드시 빌드 시점에 지정해야 하며, 컨테이너 실행 시점의 env로는 반영되지 않습니다.
+- 소켓 서버 주소가 바뀌면 이미지를 새로 빌드해야 합니다.
+
+---
+
+## 기타
+- 전체화면 해제 버튼, 실시간 신청곡, 재생목록, MUI 기반 UI 등 다양한 기능 포함
+- 문의: [프로젝트 관리자에게 문의]

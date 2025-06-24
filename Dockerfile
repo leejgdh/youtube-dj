@@ -11,6 +11,10 @@ RUN npm ci
 # 소스 전체 복사
 COPY . .
 
+# 빌드타임 환경변수 추가
+ARG NEXT_PUBLIC_SOCKET_URL
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
+
 # Next.js 빌드
 RUN npm run build
 
