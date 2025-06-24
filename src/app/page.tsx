@@ -68,6 +68,32 @@ export default function YouTubeDJ() {
     
     const handleConnect = () => setIsConnected(true);
     const handleDisconnect = () => setIsConnected(false);
+    
+    // 서버 상태 수신
+    const handleServerState = (state: any) => {
+      console.log('\n=== 서버 상태 수신 ===');
+      console.log('서버 상태:', {
+        playlist: state.playlist?.length || 0,
+        currentSong: state.currentSong?.title || 'null',
+        isPlaying: state.isPlaying
+      });
+      
+      setPlaylist(state.playlist || []);
+      setCurrentSong(state.currentSong);
+      setIsPlaying(state.isPlaying || false);
+      
+      console.log('클라이언트 상태 업데이트 완료');
+      console.log('===================\n');
+      
+      // 서버로부터 받은 신청곡들을 처리된 것으로 표시
+      if (state.currentSong) {
+        processedSongsRef.current.add(state.currentSong.id);
+      }
+      state.playlist?.forEach((song: SongRequest) => {
+        processedSongsRef.current.add(song.id);
+      });
+    };
+    
     const handleNewSongRequest = (data: SongRequest) => {
       // id로만 중복 체크
       if (processedSongsRef.current.has(data.id)) {
@@ -88,24 +114,66 @@ export default function YouTubeDJ() {
       });
     };
 
+    // 다음 곡 재생 수신
+    const handleNextSongPlaying = (data: any) => {
+      console.log('다음 곡 재생 수신:', data.currentSong?.title);
+      setCurrentSong(data.currentSong);
+      setPlaylist(data.playlist || []);
+      setIsPlaying(true);
+    };
+
+    // 재생목록 종료 수신
+    const handlePlaylistEnded = () => {
+      console.log('재생목록 종료 수신');
+      setCurrentSong(null);
+      setIsPlaying(false);
+    };
+
+    // 곡 건너뛰기 수신
+    const handleSongSkipped = (data: any) => {
+      console.log('곡 건너뛰기 수신:', data.currentSong?.title);
+      setCurrentSong(data.currentSong);
+      setPlaylist(data.playlist || []);
+      setIsPlaying(true);
+    };
+
+    // 재생 상태 변경 수신
+    const handlePlayStateChanged = (isPlaying: boolean) => {
+      console.log('재생 상태 변경 수신:', isPlaying);
+      setIsPlaying(isPlaying);
+    };
+
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
+    socket.on('server-state', handleServerState);
     socket.on('new-song-request', handleNewSongRequest);
+    socket.on('next-song-playing', handleNextSongPlaying);
+    socket.on('playlist-ended', handlePlaylistEnded);
+    socket.on('song-skipped', handleSongSkipped);
+    socket.on('play-state-changed', handlePlayStateChanged);
     
     listenersRegisteredRef.current = true;
     
     return () => { 
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
+      socket.off('server-state', handleServerState);
       socket.off('new-song-request', handleNewSongRequest);
+      socket.off('next-song-playing', handleNextSongPlaying);
+      socket.off('playlist-ended', handlePlaylistEnded);
+      socket.off('song-skipped', handleSongSkipped);
+      socket.off('play-state-changed', handlePlayStateChanged);
       listenersRegisteredRef.current = false;
     };
   }, []);
 
-  // currentSong이 변경될 때 자동 재생 (playVideo 호출 제거)
+  // currentSong이 변경될 때 YouTube Player 업데이트
   useEffect(() => {
-    // currentSong이 바뀌면 isPlaying만 true로 두고, 실제 재생은 onPlayerReady에서 처리
-  }, [currentSong, isPlaying]);
+    if (currentSong && currentSong.videoId && playerRef.current) {
+      console.log('새 곡 로드:', currentSong.title);
+      playerRef.current.loadVideoById(currentSong.videoId);
+    }
+  }, [currentSong]);
 
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -125,43 +193,21 @@ export default function YouTubeDJ() {
   const onPlayerStateChange = (event: YouTubeEvent) => {
     // YouTube Player 상태 변경 감지
     if (event.data === 0) { // 영상 종료
-      console.log('영상 종료됨, 다음 곡 재생');
-      playNextSong();
+      console.log('영상 종료됨, 다음 곡 재생 요청');
+      // 서버에 다음 곡 재생 요청
+      socket.emit('play-next-song');
     } else if (event.data === 1) { // 재생 중
       console.log('영상 재생 중');
+      socket.emit('update-play-state', true);
     } else if (event.data === 2) { // 일시정지
       console.log('영상 일시정지');
-    }
-  };
-
-  const playNextSong = () => {
-    if (playlist.length > 0) {
-      const nextSong = playlist[0];
-      setCurrentSong(nextSong);
-      setPlaylist(prev => prev.slice(1));
-      setIsPlaying(true);
-      
-      // YouTube Player가 있으면 새 영상 로드
-      if (playerRef.current && nextSong.videoId) {
-        console.log('다음 곡 로드:', nextSong.title);
-        playerRef.current.loadVideoById(nextSong.videoId);
-      }
-    } else {
-      // 재생목록이 비었을 때
-      setCurrentSong(null);
-      setIsPlaying(false);
-      
-      // YouTube Player가 있으면 정지
-      if (playerRef.current) {
-        console.log('재생목록 종료');
-        playerRef.current.stopVideo();
-      }
+      socket.emit('update-play-state', false);
     }
   };
 
   const startPlaylist = () => {
     if (playlist.length > 0 && !isPlaying) {
-      playNextSong();
+      socket.emit('play-next-song');
     }
   };
 
@@ -170,6 +216,7 @@ export default function YouTubeDJ() {
     if (playerRef.current) {
       playerRef.current.pauseVideo();
     }
+    socket.emit('update-play-state', false);
   };
 
   const resumePlaylist = () => {
@@ -177,22 +224,13 @@ export default function YouTubeDJ() {
     if (playerRef.current) {
       playerRef.current.playVideo();
     }
+    socket.emit('update-play-state', true);
   };
 
   const playSpecificSong = (songIndex: number) => {
     if (songIndex >= 0 && songIndex < playlist.length) {
-      const selectedSong = playlist[songIndex];
-      const remainingSongs = playlist.slice(songIndex + 1);
-      
-      setCurrentSong(selectedSong);
-      setPlaylist(remainingSongs);
-      setIsPlaying(true);
-      
-      // YouTube Player가 있으면 새 영상 로드
-      if (playerRef.current && selectedSong.videoId) {
-        console.log('선택한 곡으로 건너뛰기:', selectedSong.title);
-        playerRef.current.loadVideoById(selectedSong.videoId);
-      }
+      // 서버에 건너뛰기 요청
+      socket.emit('skip-to-song', songIndex);
     }
   };
 
