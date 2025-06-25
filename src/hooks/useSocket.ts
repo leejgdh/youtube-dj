@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { socket } from '../lib/socket';
-import { SongRequest } from '../types';
+import { SongRequest, ServerState, NextSongData, SongSkippedData } from '../types';
 
 export function useSocket() {
   const [playlist, setPlaylist] = useState<SongRequest[]>([]);
@@ -24,7 +24,7 @@ export function useSocket() {
     const handleDisconnect = () => setIsConnected(false);
     
     // 서버 상태 수신
-    const handleServerState = (state: any) => {
+    const handleServerState = (state: ServerState) => {
       console.log('\n=== 서버 상태 수신 ===');
       console.log('서버 상태:', {
         playlist: state.playlist?.length || 0,
@@ -85,7 +85,7 @@ export function useSocket() {
     };
 
     // 다음 곡 재생 수신
-    const handleNextSongPlaying = (data: any) => {
+    const handleNextSongPlaying = (data: NextSongData) => {
       console.log('다음 곡 재생 수신:', data.currentSong?.title);
       
       if (data.currentSong && typeof data.currentSong === 'object') {
@@ -111,7 +111,7 @@ export function useSocket() {
     };
 
     // 곡 건너뛰기 수신
-    const handleSongSkipped = (data: any) => {
+    const handleSongSkipped = (data: SongSkippedData) => {
       console.log('곡 건너뛰기 수신:', data.currentSong?.title);
       
       if (data.currentSong && typeof data.currentSong === 'object') {
