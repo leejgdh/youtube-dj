@@ -25,6 +25,7 @@ import {
   QueueMusic as QueueIcon
 } from '@mui/icons-material';
 import { useSocket } from '../../hooks/useSocket';
+import { socket } from '../../lib/socket';
 
 export default function AdminPage() {
   const [approvalMode, setApprovalMode] = useState(false);
@@ -33,70 +34,49 @@ export default function AdminPage() {
 
   // Socket.IO를 통해 관리자 상태 및 대기 요청 관리
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const socket = (window as any).socket;
-      if (socket) {
-        // 현재 모드 상태 요청
-        socket.emit('get-admin-mode');
-        
-        // 대기 중인 요청 목록 요청
-        socket.emit('get-pending-requests');
+    socket.connect();
+    
+    // 현재 모드 상태 요청
+    socket.emit('get-admin-mode');
+    
+    // 대기 중인 요청 목록 요청
+    socket.emit('get-pending-requests');
 
-        // 모드 상태 업데이트 수신
-        socket.on('admin-mode-updated', (mode: boolean) => {
-          setApprovalMode(mode);
-        });
+    // 모드 상태 업데이트 수신
+    const handleAdminModeUpdate = (mode: boolean) => {
+      setApprovalMode(mode);
+    };
 
-        // 대기 요청 목록 업데이트 수신
-        socket.on('pending-requests-updated', (requests: any[]) => {
-          setPendingRequests(requests);
-        });
+    // 대기 요청 목록 업데이트 수신
+    const handlePendingRequestsUpdate = (requests: any[]) => {
+      setPendingRequests(requests);
+    };
 
-        return () => {
-          socket.off('admin-mode-updated');
-          socket.off('pending-requests-updated');
-        };
-      }
-    }
+    socket.on('admin-mode-updated', handleAdminModeUpdate);
+    socket.on('pending-requests-updated', handlePendingRequestsUpdate);
+
+    return () => {
+      socket.off('admin-mode-updated', handleAdminModeUpdate);
+      socket.off('pending-requests-updated', handlePendingRequestsUpdate);
+    };
   }, []);
 
   const handleModeToggle = () => {
     const newMode = !approvalMode;
     setApprovalMode(newMode);
-    
-    if (typeof window !== 'undefined') {
-      const socket = (window as any).socket;
-      if (socket) {
-        socket.emit('set-admin-mode', newMode);
-      }
-    }
+    socket.emit('set-admin-mode', newMode);
   };
 
   const handleApproveRequest = (requestId: string) => {
-    if (typeof window !== 'undefined') {
-      const socket = (window as any).socket;
-      if (socket) {
-        socket.emit('approve-request', requestId);
-      }
-    }
+    socket.emit('approve-request', requestId);
   };
 
   const handleRejectRequest = (requestId: string) => {
-    if (typeof window !== 'undefined') {
-      const socket = (window as any).socket;
-      if (socket) {
-        socket.emit('reject-request', requestId);
-      }
-    }
+    socket.emit('reject-request', requestId);
   };
 
   const clearAllPendingRequests = () => {
-    if (typeof window !== 'undefined') {
-      const socket = (window as any).socket;
-      if (socket) {
-        socket.emit('clear-pending-requests');
-      }
-    }
+    socket.emit('clear-pending-requests');
   };
 
   return (

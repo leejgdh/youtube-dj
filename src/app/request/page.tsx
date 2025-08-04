@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { socket } from '../../lib/socket';
 import { useRouter } from 'next/navigation';
+import { useSocket } from '../../hooks/useSocket';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -31,35 +32,18 @@ export default function RequestPage() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [nickname, setNickname] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [approvalMode, setApprovalMode] = useState(false);
   const router = useRouter();
+  
+  // useSocket 훅에서 연결 상태와 승인 모드 가져오기
+  const { isConnected, approvalMode } = useSocket();
 
   useEffect(() => {
-    socket.connect();
-    socket.on('connect', () => {
-      setIsConnected(true);
-      // 연결되면 현재 관리자 모드 상태를 요청
-      socket.emit('get-admin-mode');
-    });
-    socket.on('disconnect', () => setIsConnected(false));
-    
-    // 관리자 모드 상태 업데이트 수신
-    socket.on('admin-mode-updated', (mode: boolean) => {
-      setApprovalMode(mode);
-    });
-    
     // 저장된 닉네임 불러오기
     const savedNickname = localStorage.getItem('youtube-dj-nickname');
     if (savedNickname) {
       setNickname(savedNickname);
     }
-    
-    return () => { 
-      socket.off('admin-mode-updated');
-      socket.disconnect(); 
-    };
   }, []);
 
   // YouTube URL에서 videoId 추출

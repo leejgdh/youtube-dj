@@ -7,6 +7,8 @@ export function useSocket() {
   const [currentSong, setCurrentSong] = useState<SongRequest | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [approvalMode, setApprovalMode] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const listenersRegisteredRef = useRef(false);
   const processedSongsRef = useRef<Set<string>>(new Set());
 
@@ -20,7 +22,11 @@ export function useSocket() {
       socket.connect();
     }
     
-    const handleConnect = () => setIsConnected(true);
+    const handleConnect = () => {
+      setIsConnected(true);
+      // 연결되면 관리자 모드 상태를 요청
+      socket.emit('get-admin-mode');
+    };
     const handleDisconnect = () => setIsConnected(false);
     
     // 서버 상태 수신
@@ -135,6 +141,18 @@ export function useSocket() {
       setIsPlaying(isPlaying);
     };
 
+    // 관리자 모드 상태 변경 수신
+    const handleAdminModeUpdated = (mode: boolean) => {
+      console.log('관리자 모드 변경 수신:', mode);
+      setApprovalMode(mode);
+    };
+
+    // 승인 대기 목록 업데이트 수신
+    const handlePendingRequestsUpdated = (requests: any[]) => {
+      console.log('승인 대기 목록 업데이트 수신:', requests.length);
+      setPendingRequests(requests);
+    };
+
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('server-state', handleServerState);
@@ -143,6 +161,8 @@ export function useSocket() {
     socket.on('playlist-ended', handlePlaylistEnded);
     socket.on('song-skipped', handleSongSkipped);
     socket.on('play-state-changed', handlePlayStateChanged);
+    socket.on('admin-mode-updated', handleAdminModeUpdated);
+    socket.on('pending-requests-updated', handlePendingRequestsUpdated);
     
     listenersRegisteredRef.current = true;
     
@@ -155,6 +175,8 @@ export function useSocket() {
       socket.off('playlist-ended', handlePlaylistEnded);
       socket.off('song-skipped', handleSongSkipped);
       socket.off('play-state-changed', handlePlayStateChanged);
+      socket.off('admin-mode-updated', handleAdminModeUpdated);
+      socket.off('pending-requests-updated', handlePendingRequestsUpdated);
       listenersRegisteredRef.current = false;
     };
   }, []);
@@ -188,6 +210,8 @@ export function useSocket() {
     currentSong,
     isPlaying,
     isConnected,
+    approvalMode,
+    pendingRequests,
     // Actions
     ...socketActions
   };
