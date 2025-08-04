@@ -194,6 +194,19 @@ io.on('connection', (socket) => {
     socket.emit('admin-mode-updated', serverState.adminMode.approvalRequired);
   });
 
+  // 클라이언트에서 저장된 모드로 서버 상태 초기화 (첫 연결 시)
+  socket.on('init-admin-mode', (storedMode) => {
+    if (typeof storedMode === 'boolean') {
+      serverState.adminMode.approvalRequired = storedMode;
+      saveState();
+      
+      // 모든 클라이언트에게 모드 변경 알림
+      io.emit('admin-mode-updated', storedMode);
+      
+      console.log(`localStorage에서 관리자 모드 복원: ${storedMode ? '승인모드' : '자유모드'}`);
+    }
+  });
+
   // 관리자 모드 설정
   socket.on('set-admin-mode', (approvalRequired) => {
     serverState.adminMode.approvalRequired = approvalRequired;

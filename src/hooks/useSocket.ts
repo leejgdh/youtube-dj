@@ -24,8 +24,23 @@ export function useSocket() {
     
     const handleConnect = () => {
       setIsConnected(true);
-      // 연결되면 관리자 모드 상태를 요청
-      socket.emit('get-admin-mode');
+      
+      // localStorage에서 저장된 모드 확인
+      if (typeof window !== 'undefined') {
+        const storedMode = localStorage.getItem('youtube-dj-admin-mode');
+        if (storedMode !== null) {
+          const mode = storedMode === 'true';
+          setApprovalMode(mode);
+          // 서버에 저장된 모드로 초기화 요청
+          socket.emit('init-admin-mode', mode);
+        } else {
+          // 저장된 모드가 없으면 서버 상태 요청
+          socket.emit('get-admin-mode');
+        }
+      } else {
+        // 서버 사이드에서는 기본 요청
+        socket.emit('get-admin-mode');
+      }
     };
     const handleDisconnect = () => setIsConnected(false);
     
@@ -145,6 +160,10 @@ export function useSocket() {
     const handleAdminModeUpdated = (mode: boolean) => {
       console.log('관리자 모드 변경 수신:', mode);
       setApprovalMode(mode);
+      // localStorage에 저장
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('youtube-dj-admin-mode', mode.toString());
+      }
     };
 
     // 승인 대기 목록 업데이트 수신

@@ -36,8 +36,17 @@ export default function AdminPage() {
   useEffect(() => {
     socket.connect();
     
-    // 현재 모드 상태 요청
-    socket.emit('get-admin-mode');
+    // localStorage에서 저장된 모드 확인
+    const storedMode = localStorage.getItem('youtube-dj-admin-mode');
+    if (storedMode !== null) {
+      const mode = storedMode === 'true';
+      setApprovalMode(mode);
+      // 서버에 저장된 모드로 초기화 요청
+      socket.emit('init-admin-mode', mode);
+    } else {
+      // 저장된 모드가 없으면 서버 상태 요청
+      socket.emit('get-admin-mode');
+    }
     
     // 대기 중인 요청 목록 요청
     socket.emit('get-pending-requests');
@@ -45,6 +54,8 @@ export default function AdminPage() {
     // 모드 상태 업데이트 수신
     const handleAdminModeUpdate = (mode: boolean) => {
       setApprovalMode(mode);
+      // localStorage에 저장
+      localStorage.setItem('youtube-dj-admin-mode', mode.toString());
     };
 
     // 대기 요청 목록 업데이트 수신
@@ -64,6 +75,8 @@ export default function AdminPage() {
   const handleModeToggle = () => {
     const newMode = !approvalMode;
     setApprovalMode(newMode);
+    // localStorage에 저장
+    localStorage.setItem('youtube-dj-admin-mode', newMode.toString());
     socket.emit('set-admin-mode', newMode);
   };
 
