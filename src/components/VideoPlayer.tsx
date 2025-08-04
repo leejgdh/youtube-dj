@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import YouTube from 'react-youtube';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -9,6 +9,7 @@ import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import { socket } from '../lib/socket';
 import FullscreenPlaylist from './FullscreenPlaylist';
+import QRCode from './QRCode';
 import { SongRequest } from '../types';
 
 interface YouTubePlayer {
@@ -41,24 +42,39 @@ export default function VideoPlayer({
   onPlaySpecificSong
 }: VideoPlayerProps) {
   const playerRef = useRef<YouTubePlayer | null>(null);
+  const [showQR, setShowQR] = useState(false);
+  // 신청곡 URL 생성
+  const getRequestUrl = () => {
+    if (typeof window !== 'undefined') {
+      const protocol = window.location.protocol;
+      let hostname = window.location.hostname;
+      
+      // 환경변수에서 IP 주소 가져오기
+      const configuredIP = process.env.NEXT_PUBLIC_HOST_IP;
+      
+      if (configuredIP && (hostname === 'localhost' || hostname === '127.0.0.1')) {
+        hostname = configuredIP;
+      }
+      
+      const port = window.location.port;
+      const portString = port ? `:${port}` : '';
+      return `${protocol}//${hostname}${portString}/request`;
+    }
+    return '';
+  };
 
   // currentSong이 변경될 때 YouTube Player 업데이트
   useEffect(() => {
     // 모든 조건을 엄격하게 체크
     if (!currentSong || !currentSong.videoId || !playerRef.current) {
-      console.log('YouTube Player 업데이트 건너뛰기:', {
-        currentSong: !!currentSong,
-        videoId: currentSong?.videoId || 'null',
-        player: !!playerRef.current
-      });
       return;
     }
 
     try {
-      console.log('새 곡 로드:', currentSong.title);
       playerRef.current.loadVideoById(currentSong.videoId);
     } catch (error) {
-      console.error('YouTube Player 로드 오류:', error);
+      // 오류 발생시 무시
+      console.error(error);
     }
   }, [currentSong]);
 
@@ -70,7 +86,6 @@ export default function VideoPlayer({
 
   const onPlayerReady = (event: YouTubeEvent) => {
     playerRef.current = event.target;
-    console.log('YouTube Player 준비됨');
     if (isPlaying) {
       event.target.playVideo();
     }
@@ -78,13 +93,22 @@ export default function VideoPlayer({
 
   const onPlayerStateChange = (event: YouTubeEvent) => {
     if (event.data === 0) { // 영상 종료
-      console.log('영상 종료됨, 다음 곡 재생 요청');
+      
+      // 전체화면 모드에서만 QR코드 표시
+      if (isFullscreen) {
+        setShowQR(true);
+        // 환경변수에서 설정된 시간(초) 후 QR코드 숨김
+        const displayTimeSeconds = parseInt(process.env.NEXT_PUBLIC_QR_DISPLAY_TIME || '5');
+        const displayTime = displayTimeSeconds * 1000;
+        setTimeout(() => {
+          setShowQR(false);
+        }, displayTime);
+      }
+      
       socket.emit('play-next-song');
     } else if (event.data === 1) { // 재생 중
-      console.log('영상 재생 중');
       socket.emit('update-play-state', true);
     } else if (event.data === 2) { // 일시정지
-      console.log('영상 일시정지');
       socket.emit('update-play-state', false);
     }
   };
@@ -205,6 +229,36 @@ export default function VideoPlayer({
               onToggleFullscreen={onToggleFullscreen}
               onPlaySpecificSong={onPlaySpecificSong}
             />
+          )}
+
+          {/* 전체화면 모드에서 곡 종료 시 QR코드 표시 */}
+          {isFullscreen && (
+            <Box
+              sx={{
+                position: 'fixed',
+                bottom: showQR ? 20 : -300,
+                right: 20,
+                zIndex: 10000,
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                borderRadius: 2,
+                p: 3,
+                transition: 'bottom 0.5s ease-in-out',
+                backdropFilter: 'blur(10px)',
+                border: '2px solid rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
+                  📱 신청곡을 등록해주세요!
+                </Typography>
+                <QRCode
+                  url={getRequestUrl()}
+                  size={150}
+                  backgroundColor="#FFFFFF"
+                  foregroundColor="#000000"
+                />
+              </Box>
+            </Box>
           )}
         </CardContent>
       </Card>

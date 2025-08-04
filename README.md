@@ -22,15 +22,11 @@ Docker를 통한 간편한 배포와 환경변수 기반의 유연한 설정을 
 ```bash
 # .env 파일 생성
 cp .env.example .env
-
-# IP 주소 수정 (필수!)
-vim .env  # 또는 원하는 에디터 사용
 ```
 
-**.env 파일에서 수정할 내용:**
-```bash
-SOCKET_URL=http://YOUR_SERVER_IP:8801  # 실제 서버 IP로 변경
-```
+**.env 파일 수정 (선택사항):**
+- 기본 설정으로 IP 자동 감지됨
+- 특정 IP 강제 사용시에만 `NEXT_PUBLIC_SOCKET_URL` 주석 해제
 
 ### 2단계: 서비스 실행
 
@@ -229,7 +225,8 @@ docker-compose logs youtube-dj | grep socket
 ```
 
 **Q: 브라우저에서 접속이 안돼요**
-- IP 주소 확인: `.env` 파일의 `SOCKET_URL` 값 점검
+- 자동 IP 감지 확인: 브라우저 개발자 도구에서 소켓 연결 확인
+- 특정 IP 사용 필요시: `.env`에서 `NEXT_PUBLIC_SOCKET_URL` 주석 해제
 - 방화벽 확인: 포트 8800, 8801 허용
 - 컨테이너 상태 확인: `docker-compose ps`
 

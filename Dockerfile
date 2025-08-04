@@ -11,9 +11,9 @@ RUN npm ci
 # 소스 전체 복사
 COPY . .
 
-# 빌드타임 환경변수 추가
-ARG NEXT_PUBLIC_SOCKET_URL
-ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
+# 빌드타임 환경변수 추가 (포트만 설정, IP는 런타임 자동 감지)
+ARG NEXT_PUBLIC_SOCKET_PORT
+ENV NEXT_PUBLIC_SOCKET_PORT=$NEXT_PUBLIC_SOCKET_PORT
 
 # Next.js 빌드
 RUN npm run build
