@@ -43,3 +43,11 @@ next-env.d.ts
 # removed files
 *.bak
 *.removed
+
+# SQLite database files
+*.db
+*.sqlite
+*.sqlite3
+/data/*.db
+/data/*.sqlite
+/data/*.sqlite3
