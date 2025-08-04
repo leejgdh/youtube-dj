@@ -304,10 +304,12 @@ io.on('connection', (socket) => {
 
   // 재생목록 순서 변경
   socket.on('reorder-playlist', (newPlaylist) => {
+    console.log('Reorder playlist request received:', newPlaylist);
     if (Array.isArray(newPlaylist)) {
       serverState.playlist = newPlaylist;
       saveState();
       
+      console.log('Emitting playlist-only-updated with:', serverState.playlist);
       // 재생목록만 업데이트 (현재 재생 중인 곡은 건드리지 않음)
       io.emit('playlist-only-updated', serverState.playlist);
       

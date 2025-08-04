@@ -170,6 +170,7 @@ export function useSocket() {
 
     // 재생목록만 업데이트 수신 (현재 재생 중인 곡은 건드리지 않음)
     const handlePlaylistOnlyUpdated = (newPlaylist: SongRequest[]) => {
+      console.log('Playlist only updated received:', newPlaylist);
       // 재생목록만 업데이트 (현재 재생 중인 곡과 재생 상태는 건드리지 않음)
       setPlaylist(newPlaylist || []);
     };

@@ -5,10 +5,25 @@ const getSocketUrl = () => {
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
     const hostname = window.location.hostname;
+    const webPort = window.location.port;
     
-    // 개발 환경에서는 3001 포트, 프로덕션(Docker)에서는 8801 포트
-    const port = hostname === 'localhost' ? '3001' : '8801';
-    return `${protocol}//${hostname}:${port}`;
+    // 웹 포트에 따라 소켓 포트 결정
+    let socketPort;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      // 로컬 개발 환경
+      socketPort = '3001';
+    } else if (webPort === '8800') {
+      // Docker 프로덕션 환경 (웹:8800 → 소켓:8801)
+      socketPort = '8801';
+    } else if (webPort === '3000') {
+      // 개발 환경에서 IP로 접속 (웹:3000 → 소켓:3001)
+      socketPort = '3001';
+    } else {
+      // 기본값
+      socketPort = '3001';
+    }
+    
+    return `${protocol}//${hostname}:${socketPort}`;
   }
   
   // 서버 사이드 렌더링 시 기본값

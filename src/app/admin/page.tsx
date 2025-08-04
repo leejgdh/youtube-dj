@@ -290,6 +290,7 @@ export default function AdminPage() {
 
   // 재생목록 순서 변경
   const handleReorderPlaylist = (newPlaylist: Song[]) => {
+    console.log('Reordering playlist:', newPlaylist);
     socket.emit('reorder-playlist', newPlaylist);
   };
 
