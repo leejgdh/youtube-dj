@@ -101,7 +101,8 @@ export default function QRCode({
           ref={canvasRef}
           style={{
             display: isLoading || error ? 'none' : 'block',
-            borderRadius: '4px'
+            borderRadius: '4px',
+            margin: '0 auto'
           }}
         />
       </Box>

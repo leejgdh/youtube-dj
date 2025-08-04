@@ -251,7 +251,7 @@ export default function VideoPlayer({
             >
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
-                  📱 신청곡을 등록해주세요!
+                  신청곡을 등록해주세요!
                 </Typography>
                 <QRCode
                   url={getRequestUrl()}
