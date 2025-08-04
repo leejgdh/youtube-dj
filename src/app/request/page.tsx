@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { socket } from '../../lib/socket';
-import { useRouter } from 'next/navigation';
 import { useSocket } from '../../hooks/useSocket';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -14,7 +13,6 @@ import Alert from '@mui/material/Alert';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 import PersonIcon from '@mui/icons-material/Person';
 import LinkIcon from '@mui/icons-material/Link';
-import HomeIcon from '@mui/icons-material/Home';
 
 interface SongRequest {
   id: string;
@@ -37,7 +35,6 @@ export default function RequestPage() {
     message: '',
     severity: 'info'
   });
-  const router = useRouter();
   
   // useSocket 훅에서 연결 상태와 승인 모드 가져오기
   const { isConnected, approvalMode } = useSocket();
@@ -172,18 +169,11 @@ export default function RequestPage() {
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto', py: 4, px: 2 }}>
       {/* 헤더 */}
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={4}>
+      <Box display="flex" alignItems="center" justifyContent="center" mb={4}>
         <Typography variant="h4" fontWeight={700}>
           <QueueMusicIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
           신청곡 등록
         </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<HomeIcon />}
-          onClick={() => router.push('/')}
-        >
-          메인으로
-        </Button>
       </Box>
 
       {/* 연결 상태 및 모드 표시 */}

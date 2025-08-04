@@ -9,9 +9,6 @@ import {
   Switch,
   FormControlLabel,
   List,
-  ListItem,
-  ListItemText,
-  IconButton,
   Button,
   Alert,
   Chip,
@@ -27,18 +24,16 @@ import {
   Alert as MuiAlert
 } from '@mui/material';
 import {
-  Check as CheckIcon,
-  Close as CloseIcon,
   AdminPanelSettings as AdminIcon,
   QueueMusic as QueueIcon,
-  Delete as DeleteIcon,
   PlayArrow as PlayIcon,
-  DragIndicator as DragIcon,
   SkipNext as SkipIcon,
   Block as BlockIcon
 } from '@mui/icons-material';
 import { useSocket } from '../../hooks/useSocket';
 import { socket } from '../../lib/socket';
+import { useAuth } from '../../contexts/AuthContext';
+import LoginForm from '../../components/LoginForm';
 import {
   DndContext,
   closestCenter,
@@ -54,10 +49,14 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import {
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import SongListItem, { 
+  createApproveAction, 
+  createRejectAction, 
+  createBanAction, 
+  createDeleteAction, 
+  createRemoveAction 
+} from '../../components/SongListItem';
+import SortableSongListItem from '../../components/SortableSongListItem';
 
 // 타입 정의 - SongRequest와 호환되도록 수정
 interface Song {
@@ -95,110 +94,11 @@ interface SongBanResult {
   message: string;
 }
 
-// 드래그 가능한 재생목록 아이템 컴포넌트
-function SortablePlaylistItem({ song, index, onRemove, onBan }: { 
-  song: Song, 
-  index: number, 
-  onRemove: (id: string) => void,
-  onBan?: (song: Song) => void
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: song.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <ListItem
-      ref={setNodeRef}
-      style={style}
-      sx={{
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 1,
-        mb: 1,
-        bgcolor: 'background.paper',
-        cursor: isDragging ? 'grabbing' : 'grab',
-      }}
-    >
-      <Box
-        {...attributes}
-        {...listeners}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          mr: 2,
-          cursor: 'grab',
-          '&:active': {
-            cursor: 'grabbing',
-          },
-        }}
-      >
-        <DragIcon color="action" />
-      </Box>
-      
-      <ListItemText
-        primary={
-          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-            {index + 1}. {song.title || '제목 없음'}
-          </Typography>
-        }
-        secondary={
-          <Box component="span">
-            <Typography variant="body2" color="text.secondary" component="span">
-              신청자: {song.nickname}
-            </Typography>
-            <br />
-            <Typography variant="caption" color="text.secondary" component="span">
-              신청 시간: {song.timestamp instanceof Date ? song.timestamp.toLocaleString('ko-KR') : new Date(song.timestamp).toLocaleString('ko-KR')}
-            </Typography>
-          </Box>
-        }
-      />
-      
-      <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
-        {onBan && (
-          <IconButton
-            aria-label="ban"
-            onClick={() => onBan(song)}
-            color="warning"
-            size="small"
-            title="금지곡으로 추가"
-          >
-            <BlockIcon />
-          </IconButton>
-        )}
-        <IconButton
-          edge="end"
-          aria-label="remove"
-          onClick={() => onRemove(song.id)}
-          color="error"
-          size="small"
-          title="재생목록에서 제거"
-        >
-          <DeleteIcon />
-        </IconButton>
-      </Box>
-    </ListItem>
-  );
-}
 
 export default function AdminPage() {
   const [approvalMode, setApprovalMode] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<Song[]>([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [loginError, setLoginError] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const { isAuthenticated, handleLogout } = useAuth();
   const [currentTab, setCurrentTab] = useState(0);
   const [bannedSongs, setBannedSongs] = useState<BannedSong[]>([]);
   const [showBanConfirmDialog, setShowBanConfirmDialog] = useState(false);
@@ -231,51 +131,6 @@ export default function AdminPage() {
     setToast(prev => ({ ...prev, open: false }));
   };
 
-  // 페이지 로드 시 인증 상태 확인
-  useEffect(() => {
-    const authStatus = localStorage.getItem('youtube-dj-admin-auth');
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
-    }
-  }, []);
-
-  // 로그인 처리
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    setLoginError('');
-
-    try {
-      const response = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(loginForm),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setIsAuthenticated(true);
-        localStorage.setItem('youtube-dj-admin-auth', 'true');
-        setLoginForm({ username: '', password: '' });
-      } else {
-        setLoginError(data.message || '로그인에 실패했습니다.');
-      }
-    } catch {
-      setLoginError('로그인 처리 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  // 로그아웃 처리
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem('youtube-dj-admin-auth');
-    setLoginForm({ username: '', password: '' });
-  };
 
   // Socket.IO를 통해 관리자 상태 및 대기 요청 관리
   useEffect(() => {
@@ -454,66 +309,10 @@ export default function AdminPage() {
   // 로그인되지 않은 경우 로그인 폼 표시
   if (!isAuthenticated) {
     return (
-      <Box sx={{ maxWidth: 400, mx: 'auto', p: 3, mt: 8 }}>
-        <Card sx={{ p: 4 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3 }}>
-            <AdminIcon sx={{ mr: 2, fontSize: 32, color: 'primary.main' }} />
-            <Typography variant="h4" component="h1">
-              관리자 로그인
-            </Typography>
-          </Box>
-
-          <Box component="form" onSubmit={handleLogin} sx={{ mt: 2 }}>
-            <TextField
-              fullWidth
-              label="아이디"
-              value={loginForm.username}
-              onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-              margin="normal"
-              required
-              disabled={isLoggingIn}
-              autoComplete="username"
-            />
-            <TextField
-              fullWidth
-              label="비밀번호"
-              type="password"
-              value={loginForm.password}
-              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-              margin="normal"
-              required
-              disabled={isLoggingIn}
-              autoComplete="current-password"
-            />
-
-            {loginError && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                {loginError}
-              </Alert>
-            )}
-
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-              disabled={isLoggingIn}
-            >
-              {isLoggingIn ? '로그인 중...' : '로그인'}
-            </Button>
-          </Box>
-
-          <Box sx={{ mt: 4, textAlign: 'center' }}>
-            <Button 
-              variant="text" 
-              href="/"
-              size="small"
-            >
-              메인 페이지로 돌아가기
-            </Button>
-          </Box>
-        </Card>
-      </Box>
+      <LoginForm 
+        title="관리자 로그인"
+        icon={<AdminIcon sx={{ mr: 2, fontSize: 32, color: 'primary.main' }} />}
+      />
     );
   }
 
@@ -638,65 +437,15 @@ export default function AdminPage() {
             ) : (
               <List>
                 {pendingRequests.map((request) => (
-                  <ListItem 
+                  <SongListItem
                     key={request.id}
-                    sx={{ 
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      mb: 1,
-                      bgcolor: 'background.paper'
-                    }}
-                  >
-                    <ListItemText
-                      primary={
-                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                          {request.title || '제목 없음'}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box component="span">
-                          <Typography variant="body2" color="text.secondary" component="span">
-                            신청자: {request.nickname}
-                          </Typography>
-                          <br />
-                          <Typography variant="caption" color="text.secondary" component="span">
-                            신청 시간: {request.timestamp instanceof Date ? request.timestamp.toLocaleString('ko-KR') : new Date(request.timestamp).toLocaleString('ko-KR')}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                    <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
-                      <IconButton
-                        aria-label="approve"
-                        onClick={() => handleApproveRequest(request.id)}
-                        color="success"
-                        size="small"
-                        title="승인"
-                      >
-                        <CheckIcon />
-                      </IconButton>
-                      <IconButton
-                        aria-label="ban"
-                        onClick={() => openBanConfirmDialog(request)}
-                        color="warning"
-                        size="small"
-                        title="금지곡으로 추가"
-                      >
-                        <BlockIcon />
-                      </IconButton>
-                      <IconButton
-                        edge="end"
-                        aria-label="reject"
-                        onClick={() => handleRejectRequest(request.id)}
-                        color="error"
-                        size="small"
-                        title="거부"
-                      >
-                        <CloseIcon />
-                      </IconButton>
-                    </Box>
-                  </ListItem>
+                    song={request}
+                    actions={[
+                      createApproveAction(() => handleApproveRequest(request.id)),
+                      createBanAction(() => openBanConfirmDialog(request)),
+                      createRejectAction(() => handleRejectRequest(request.id))
+                    ]}
+                  />
                 ))}
               </List>
             )}
@@ -786,12 +535,14 @@ export default function AdminPage() {
                 >
                   <List>
                     {playlist.map((song, index) => (
-                      <SortablePlaylistItem
+                      <SortableSongListItem
                         key={song.id}
                         song={song}
                         index={index}
-                        onRemove={handleRemoveFromPlaylist}
-                        onBan={openBanConfirmDialog}
+                        actions={[
+                          createBanAction(() => openBanConfirmDialog(song)),
+                          createRemoveAction(() => handleRemoveFromPlaylist(song.id))
+                        ]}
                       />
                     ))}
                   </List>
@@ -830,38 +581,16 @@ export default function AdminPage() {
             ) : (
               <List>
                 {bannedSongs.map((song: BannedSong) => (
-                  <ListItem key={song.id} sx={{ 
-                    border: '1px solid', 
-                    borderColor: 'divider', 
-                    borderRadius: 1, 
-                    mb: 1, 
-                    bgcolor: 'background.paper',
-                    '&:hover': { bgcolor: 'action.hover' }
-                  }}>
-                    <ListItemText
-                      primary={song.title}
-                      secondary={
-                        <Box component="span">
-                          <Typography variant="body2" color="text.secondary" component="span">
-                            채널: {song.author}
-                          </Typography>
-                          <br />
-                          <Typography variant="caption" color="text.secondary" component="span">
-                            등록일: {new Date(song.banned_at).toLocaleString()}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                    <IconButton
-                      edge="end"
-                      color="error"
-                      onClick={() => handleUnbanSong(song.id)}
-                      title="금지곡에서 제거"
-                      sx={{ ml: 'auto' }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </ListItem>
+                  <SongListItem
+                    key={song.id}
+                    song={song}
+                    actions={[
+                      createDeleteAction(() => handleUnbanSong(song.id))
+                    ]}
+                    itemStyles={{
+                      '&:hover': { bgcolor: 'action.hover' }
+                    }}
+                  />
                 ))}
               </List>
             )}

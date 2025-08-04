@@ -2,13 +2,13 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
-import AddIcon from '@mui/icons-material/Add';
 
 interface HeaderProps {
   isConnected: boolean;
+  onLogout?: () => void;
 }
 
-export default function Header({ isConnected }: HeaderProps) {
+export default function Header({ isConnected, onLogout }: HeaderProps) {
   return (
     <>
       <Box display="flex" alignItems="center" justifyContent="space-between" mb={3} px={2}>
@@ -16,15 +16,16 @@ export default function Header({ isConnected }: HeaderProps) {
           <MusicNoteIcon fontSize="large" sx={{ verticalAlign: 'middle', mr: 1 }} />
           YouTube DJ
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={() => window.open('/request', '_blank')}
-          size="large"
-        >
-          신청곡 등록
-        </Button>
+        {onLogout && (
+          <Button 
+            variant="outlined" 
+            color="secondary" 
+            onClick={onLogout}
+            size="small"
+          >
+            로그아웃
+          </Button>
+        )}
       </Box>
 
       {/* 연결 상태 */}
