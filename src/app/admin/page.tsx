@@ -17,7 +17,15 @@ import {
   Alert,
   Chip,
   Divider,
-  TextField
+  TextField,
+  Tab,
+  Tabs,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
+  Alert as MuiAlert
 } from '@mui/material';
 import {
   Check as CheckIcon,
@@ -27,7 +35,9 @@ import {
   Delete as DeleteIcon,
   PlayArrow as PlayIcon,
   DragIndicator as DragIcon,
-  SkipNext as SkipIcon
+  SkipNext as SkipIcon,
+  Block as BlockIcon,
+  List as ListIcon
 } from '@mui/icons-material';
 import { useSocket } from '../../hooks/useSocket';
 import { socket } from '../../lib/socket';
@@ -52,10 +62,11 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 // 드래그 가능한 재생목록 아이템 컴포넌트
-function SortablePlaylistItem({ song, index, onRemove }: { 
+function SortablePlaylistItem({ song, index, onRemove, onBan }: { 
   song: any, 
   index: number, 
-  onRemove: (id: string) => void 
+  onRemove: (id: string) => void,
+  onBan?: (song: any) => void
 }) {
   const {
     attributes,
@@ -120,15 +131,29 @@ function SortablePlaylistItem({ song, index, onRemove }: {
       />
       
       <ListItemSecondaryAction>
-        <IconButton
-          edge="end"
-          aria-label="remove"
-          onClick={() => onRemove(song.id)}
-          color="error"
-          size="small"
-        >
-          <DeleteIcon />
-        </IconButton>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {onBan && (
+            <IconButton
+              aria-label="ban"
+              onClick={() => onBan(song)}
+              color="warning"
+              size="small"
+              title="금지곡으로 추가"
+            >
+              <BlockIcon />
+            </IconButton>
+          )}
+          <IconButton
+            edge="end"
+            aria-label="remove"
+            onClick={() => onRemove(song.id)}
+            color="error"
+            size="small"
+            title="재생목록에서 제거"
+          >
+            <DeleteIcon />
+          </IconButton>
+        </Box>
       </ListItemSecondaryAction>
     </ListItem>
   );
@@ -141,6 +166,15 @@ export default function AdminPage() {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [currentTab, setCurrentTab] = useState(0);
+  const [bannedSongs, setBannedSongs] = useState<any[]>([]);
+  const [showBanConfirmDialog, setShowBanConfirmDialog] = useState(false);
+  const [songToBan, setSongToBan] = useState<any>(null);
+  const [toast, setToast] = useState<{open: boolean, message: string, severity: 'success' | 'error' | 'info' | 'warning'}>({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
   const { isConnected, playlist, currentSong } = useSocket();
 
   // 드래그 앤 드롭 센서 설정
@@ -150,6 +184,19 @@ export default function AdminPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Toast 표시 함수
+  const showToast = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setToast({
+      open: true,
+      message,
+      severity
+    });
+  };
+
+  const handleToastClose = () => {
+    setToast(prev => ({ ...prev, open: false }));
+  };
 
   // 페이지 로드 시 인증 상태 확인
   useEffect(() => {
@@ -216,6 +263,9 @@ export default function AdminPage() {
     
     // 대기 중인 요청 목록 요청
     socket.emit('get-pending-requests');
+    
+    // 금지곡 목록 로드
+    loadBannedSongs();
 
     // 모드 상태 업데이트 수신
     const handleAdminModeUpdate = (mode: boolean) => {
@@ -229,14 +279,96 @@ export default function AdminPage() {
       setPendingRequests(requests);
     };
 
+    // 금지곡 등록 결과 알림 수신
+    const handleSongBanResult = (result: any) => {
+      showToast(result.message, 'success');
+    };
+
     socket.on('admin-mode-updated', handleAdminModeUpdate);
     socket.on('pending-requests-updated', handlePendingRequestsUpdate);
+    socket.on('song-ban-result', handleSongBanResult);
 
     return () => {
       socket.off('admin-mode-updated', handleAdminModeUpdate);
       socket.off('pending-requests-updated', handlePendingRequestsUpdate);
+      socket.off('song-ban-result', handleSongBanResult);
     };
   }, [isAuthenticated]);
+
+  // 금지곡 목록 로드
+  const loadBannedSongs = async () => {
+    try {
+      const response = await fetch('/api/admin/banned-songs');
+      if (response.ok) {
+        const data = await response.json();
+        setBannedSongs(data.bannedSongs);
+      }
+    } catch (error) {
+      console.error('Error loading banned songs:', error);
+    }
+  };
+
+  // 금지곡으로 추가
+  const handleBanSong = async (song: any) => {
+    try {
+      const response = await fetch('/api/admin/banned-songs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          youtubeUrl: song.youtubeUrl,
+          videoId: song.videoId,
+          title: song.title,
+          author: song.author || '알 수 없음'
+        }),
+      });
+
+      if (response.ok) {
+        await loadBannedSongs();
+        setShowBanConfirmDialog(false);
+        setSongToBan(null);
+        
+        // 소켓으로 금지곡 추가 알림 (목록에서 제거하기 위해)
+        socket.emit('song-banned', {
+          youtubeUrl: song.youtubeUrl,
+          videoId: song.videoId,
+          title: song.title,
+          author: song.author || '알 수 없음'
+        });
+      } else {
+        const data = await response.json();
+        showToast(data.error || '금지곡 추가에 실패했습니다.', 'error');
+      }
+    } catch (error) {
+      console.error('Error banning song:', error);
+      showToast('금지곡 추가 중 오류가 발생했습니다.', 'error');
+    }
+  };
+
+  // 금지곡에서 제거
+  const handleUnbanSong = async (songId: number) => {
+    try {
+      const response = await fetch(`/api/admin/banned-songs?id=${songId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        await loadBannedSongs();
+      } else {
+        showToast('금지곡 제거에 실패했습니다.', 'error');
+      }
+    } catch (error) {
+      console.error('Error unbanning song:', error);
+      showToast('금지곡 제거 중 오류가 발생했습니다.', 'error');
+    }
+  };
+
+  // 금지곡 추가 확인 다이얼로그 열기
+  const openBanConfirmDialog = (song: any) => {
+    setSongToBan(song);
+    setShowBanConfirmDialog(true);
+  };
 
   const handleModeToggle = () => {
     const newMode = !approvalMode;
@@ -410,7 +542,32 @@ export default function AdminPage() {
         </CardContent>
       </Card>
 
-      {/* 승인 대기 목록 (승인 모드일 때만 표시) */}
+      {/* 탭 네비게이션 */}
+      <Card sx={{ mb: 3 }}>
+        <Tabs 
+          value={currentTab} 
+          onChange={(e, newValue) => setCurrentTab(newValue)}
+          variant="fullWidth"
+        >
+          <Tab 
+            icon={<QueueIcon />} 
+            label="재생목록 관리" 
+            id="tab-0"
+            aria-controls="tabpanel-0"
+          />
+          <Tab 
+            icon={<BlockIcon />} 
+            label="금지곡 관리" 
+            id="tab-1"
+            aria-controls="tabpanel-1"
+          />
+        </Tabs>
+      </Card>
+
+      {/* 탭 패널 0: 재생목록 관리 */}
+      {currentTab === 0 && (
+        <>
+          {/* 승인 대기 목록 (승인 모드일 때만 표시) */}
       {approvalMode && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
@@ -476,23 +633,36 @@ export default function AdminPage() {
                       }
                     />
                     <ListItemSecondaryAction>
-                      <IconButton
-                        edge="end"
-                        aria-label="approve"
-                        onClick={() => handleApproveRequest(request.id)}
-                        color="success"
-                        sx={{ mr: 1 }}
-                      >
-                        <CheckIcon />
-                      </IconButton>
-                      <IconButton
-                        edge="end"
-                        aria-label="reject"
-                        onClick={() => handleRejectRequest(request.id)}
-                        color="error"
-                      >
-                        <CloseIcon />
-                      </IconButton>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <IconButton
+                          aria-label="approve"
+                          onClick={() => handleApproveRequest(request.id)}
+                          color="success"
+                          size="small"
+                          title="승인"
+                        >
+                          <CheckIcon />
+                        </IconButton>
+                        <IconButton
+                          aria-label="ban"
+                          onClick={() => openBanConfirmDialog(request)}
+                          color="warning"
+                          size="small"
+                          title="금지곡으로 추가"
+                        >
+                          <BlockIcon />
+                        </IconButton>
+                        <IconButton
+                          edge="end"
+                          aria-label="reject"
+                          onClick={() => handleRejectRequest(request.id)}
+                          color="error"
+                          size="small"
+                          title="거부"
+                        >
+                          <CloseIcon />
+                        </IconButton>
+                      </Box>
                     </ListItemSecondaryAction>
                   </ListItem>
                 ))}
@@ -589,6 +759,7 @@ export default function AdminPage() {
                         song={song}
                         index={index}
                         onRemove={handleRemoveFromPlaylist}
+                        onBan={openBanConfirmDialog}
                       />
                     ))}
                   </List>
@@ -598,6 +769,136 @@ export default function AdminPage() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
+
+      {/* 탭 패널 1: 금지곡 관리 */}
+      {currentTab === 1 && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <BlockIcon sx={{ mr: 1 }} />
+              <Typography variant="h6">
+                금지곡 목록
+              </Typography>
+              <Chip 
+                label={bannedSongs.length} 
+                color="error" 
+                size="small" 
+                sx={{ ml: 1 }}
+              />
+            </Box>
+
+            <Divider sx={{ mb: 2 }} />
+
+            {bannedSongs.length === 0 ? (
+              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                등록된 금지곡이 없습니다.
+              </Typography>
+            ) : (
+              <List>
+                {bannedSongs.map((song: any) => (
+                  <ListItem key={song.id} sx={{ 
+                    border: '1px solid', 
+                    borderColor: 'error.light', 
+                    borderRadius: 1, 
+                    mb: 1, 
+                    bgcolor: 'error.light',
+                    '&:hover': { bgcolor: 'error.main' }
+                  }}>
+                    <ListItemText
+                      primary={song.title}
+                      secondary={
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            채널: {song.author}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            등록일: {new Date(song.banned_at).toLocaleString()}
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                    <ListItemSecondaryAction>
+                      <IconButton
+                        edge="end"
+                        color="error"
+                        onClick={() => handleUnbanSong(song.id)}
+                        title="금지곡에서 제거"
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 금지곡 추가 확인 다이얼로그 */}
+      <Dialog 
+        open={showBanConfirmDialog} 
+        onClose={() => setShowBanConfirmDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <BlockIcon sx={{ mr: 1, color: 'error.main' }} />
+            금지곡으로 등록
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {songToBan && (
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                {songToBan.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                채널: {songToBan.author || '알 수 없음'}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 2 }}>
+                이 곡을 금지곡으로 등록하시겠습니까?
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                금지곡으로 등록하면 앞으로 이 곡은 신청할 수 없습니다.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowBanConfirmDialog(false)}>
+            취소
+          </Button>
+          <Button 
+            onClick={() => handleBanSong(songToBan)} 
+            color="error" 
+            variant="contained"
+          >
+            금지곡으로 등록
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Toast 알림 */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={handleToastClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <MuiAlert 
+          onClose={handleToastClose} 
+          severity={toast.severity} 
+          sx={{ width: '100%' }}
+          elevation={6}
+          variant="filled"
+        >
+          {toast.message}
+        </MuiAlert>
+      </Snackbar>
 
     </Box>
   );

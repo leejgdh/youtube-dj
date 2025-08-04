@@ -1,5 +1,6 @@
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+const db = require('./lib/database');
 
 const server = createServer();
 const io = new Server(server, {
@@ -58,40 +59,59 @@ const saveState = () => {
 };
 
 io.on('connection', (socket) => {
+  console.log(`Client connected: ${socket.id}`);
+  
   // 클라이언트 연결 시 현재 상태 전송
   socket.emit('server-state', serverState);
 
   // 새로운 신청곡 처리
-  socket.on('request-song', (data) => {
+  socket.on('request-song', async (data) => {
     const songWithId = {
       ...data,
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       timestamp: new Date().toISOString()
     };
     
-    // 승인모드인지 확인
-    if (serverState.adminMode.approvalRequired) {
-      // 승인모드: 대기 목록에 추가
-      serverState.pendingRequests.push(songWithId);
-      saveState();
-      
-      // 관리자에게 새로운 승인 요청 알림
-      io.emit('pending-requests-updated', serverState.pendingRequests);
-      
-    } else {
-      // 자유모드: 바로 재생목록에 추가
-      if (!serverState.currentSong) {
-        serverState.currentSong = songWithId;
-        serverState.isPlaying = true;
-      } else {
-        serverState.playlist.push(songWithId);
+    try {
+      // 금지곡 체크
+      const isBanned = await db.isBannedSong(songWithId.youtubeUrl);
+      if (isBanned) {
+        socket.emit('song-request-error', {
+          error: '이 곡은 금지곡으로 등록되어 있어 신청할 수 없습니다.',
+          song: songWithId
+        });
+        return;
       }
       
-      saveState();
-      
-      // 모든 클라이언트에게 새로운 신청곡 알림
-      io.emit('new-song-request', songWithId);
-      
+      // 승인모드인지 확인
+      if (serverState.adminMode.approvalRequired) {
+        // 승인모드: 대기 목록에 추가
+        serverState.pendingRequests.push(songWithId);
+        saveState();
+        
+        // 관리자에게 새로운 승인 요청 알림
+        io.emit('pending-requests-updated', serverState.pendingRequests);
+        
+      } else {
+        // 자유모드: 바로 재생목록에 추가
+        if (!serverState.currentSong) {
+          serverState.currentSong = songWithId;
+          serverState.isPlaying = true;
+        } else {
+          serverState.playlist.push(songWithId);
+        }
+        
+        saveState();
+        
+        // 모든 클라이언트에게 새로운 신청곡 알림
+        io.emit('new-song-request', songWithId);
+      }
+    } catch (error) {
+      console.error('Error processing song request:', error);
+      socket.emit('song-request-error', {
+        error: '신청곡 처리 중 오류가 발생했습니다.',
+        song: songWithId
+      });
     }
   });
 
@@ -323,8 +343,77 @@ io.on('connection', (socket) => {
     }
   });
 
+  // 금지곡 추가 후 목록에서 제거
+  socket.on('song-banned', (bannedSong) => {
+    const { youtubeUrl, videoId, title } = bannedSong;
+    let removedFromPlaylist = false;
+    let removedFromPending = false;
+    let currentSongBanned = false;
+
+    // 재생목록에서 해당 곡 제거
+    const originalPlaylistLength = serverState.playlist.length;
+    serverState.playlist = serverState.playlist.filter(song => 
+      song.youtubeUrl !== youtubeUrl && song.videoId !== videoId
+    );
+    removedFromPlaylist = serverState.playlist.length < originalPlaylistLength;
+
+    // 승인 대기 목록에서 해당 곡 제거
+    const originalPendingLength = serverState.pendingRequests.length;
+    serverState.pendingRequests = serverState.pendingRequests.filter(song => 
+      song.youtubeUrl !== youtubeUrl && song.videoId !== videoId
+    );
+    removedFromPending = serverState.pendingRequests.length < originalPendingLength;
+
+    // 현재 재생 중인 곡이 금지곡인 경우 다음 곡으로 넘어가기
+    if (serverState.currentSong && 
+        (serverState.currentSong.youtubeUrl === youtubeUrl || 
+         serverState.currentSong.videoId === videoId)) {
+      currentSongBanned = true;
+      
+      // 다음 곡으로 넘어가기
+      if (serverState.playlist.length > 0) {
+        serverState.currentSong = serverState.playlist.shift();
+        serverState.isPlaying = true;
+      } else {
+        serverState.currentSong = null;
+        serverState.isPlaying = false;
+      }
+      
+      // 전체 상태 업데이트 브로드캐스트
+      io.emit('playlist-updated', {
+        playlist: serverState.playlist,
+        currentSong: serverState.currentSong
+      });
+    } else {
+      // 재생목록만 업데이트 (현재 재생 중인 곡은 건드리지 않음)
+      if (removedFromPlaylist) {
+        io.emit('playlist-only-updated', serverState.playlist);
+      }
+    }
+
+    // 승인 대기 목록 업데이트
+    if (removedFromPending) {
+      io.emit('pending-requests-updated', serverState.pendingRequests);
+    }
+
+    // 제거 결과 알림 전송
+    socket.emit('song-ban-result', {
+      title,
+      removedFromPlaylist,
+      removedFromPending,
+      currentSongBanned,
+      message: `"${title}"이(가) 금지곡으로 등록되었습니다.${
+        currentSongBanned ? ' 현재 재생 중인 곡이 건너뛰어졌습니다.' : ''
+      }${removedFromPlaylist ? ' 재생목록에서 제거되었습니다.' : ''}${
+        removedFromPending ? ' 승인 대기목록에서 제거되었습니다.' : ''
+      }`
+    });
+
+    saveState();
+  });
 
   socket.on('disconnect', () => {
+    console.log(`Client disconnected: ${socket.id}`);
   });
 });
 
@@ -332,6 +421,12 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3001;
 const HOST = '0.0.0.0';
 
-server.listen(PORT, HOST, () => {
-  console.log(`Socket.IO server running on ${HOST}:${PORT}`);
+// 데이터베이스 초기화 후 서버 시작
+db.initDatabase().then(() => {
+  server.listen(PORT, HOST, () => {
+    console.log(`Socket.IO server running on ${HOST}:${PORT}`);
+  });
+}).catch((error) => {
+  console.error('Failed to initialize database:', error);
+  process.exit(1);
 }); 

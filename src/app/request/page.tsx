@@ -10,11 +10,12 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 import PersonIcon from '@mui/icons-material/Person';
 import LinkIcon from '@mui/icons-material/Link';
 import HomeIcon from '@mui/icons-material/Home';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 interface SongRequest {
   id: string;
@@ -32,11 +33,28 @@ export default function RequestPage() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [nickname, setNickname] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [toast, setToast] = useState<{open: boolean, message: string, severity: 'success' | 'error' | 'info' | 'warning'}>({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
   const router = useRouter();
   
   // useSocket 훅에서 연결 상태와 승인 모드 가져오기
   const { isConnected, approvalMode } = useSocket();
+
+  // Toast 표시 함수
+  const showToast = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setToast({
+      open: true,
+      message,
+      severity
+    });
+  };
+
+  const handleToastClose = () => {
+    setToast(prev => ({ ...prev, open: false }));
+  };
 
   useEffect(() => {
     // 저장된 닉네임 불러오기
@@ -44,6 +62,18 @@ export default function RequestPage() {
     if (savedNickname) {
       setNickname(savedNickname);
     }
+    
+    // 금지곡 에러 처리
+    const handleSongRequestError = (data: { error: string; song: any }) => {
+      showToast(data.error, 'error');
+      setIsLoading(false);
+    };
+    
+    socket.on('song-request-error', handleSongRequestError);
+    
+    return () => {
+      socket.off('song-request-error', handleSongRequestError);
+    };
   }, []);
 
   // YouTube URL에서 videoId 추출
@@ -92,6 +122,23 @@ export default function RequestPage() {
     setIsLoading(true);
     try {
       const youtubeInfo = await getYouTubeInfo(youtubeUrl.trim());
+      
+      // 금지곡 체크
+      const checkResponse = await fetch('/api/check-banned', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ youtubeUrl: youtubeUrl.trim(), videoId: youtubeInfo.videoId })
+      });
+      
+      if (checkResponse.ok) {
+        const checkData = await checkResponse.json();
+        if (checkData.isBanned) {
+          showToast('이 곡은 금지곡으로 등록되어 있어 신청할 수 없습니다.', 'warning');
+          setIsLoading(false);
+          return;
+        }
+      }
+      
       const songRequest: SongRequest = {
         id: Date.now().toString(),
         youtubeUrl: youtubeUrl.trim(),
@@ -106,10 +153,9 @@ export default function RequestPage() {
       
       setYoutubeUrl('');
       // 닉네임은 유지 (초기화하지 않음)
-      setIsSubmitted(true);
-      setTimeout(() => setIsSubmitted(false), 3000);
+      showToast('신청곡이 등록되었습니다!', 'success');
     } catch {
-      alert('신청곡 등록에 실패했습니다. URL을 확인해주세요.');
+      showToast('신청곡 등록에 실패했습니다. URL을 확인해주세요.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -169,26 +215,6 @@ export default function RequestPage() {
         )}
       </Box>
 
-      {/* 성공 메시지 */}
-      {isSubmitted && (
-        <Card sx={{ mb: 3, bgcolor: '#e8f5e8', border: '2px solid #4caf50' }}>
-          <CardContent sx={{ textAlign: 'center' }}>
-            <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
-            <Typography variant="h6" color="success.main" fontWeight={700}>
-              신청곡이 등록되었습니다!
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {approvalMode 
-                ? '관리자 승인 후 재생목록에 추가됩니다.'
-                : '메인 페이지에서 재생 상태를 확인하세요.'
-              }
-            </Typography>
-            <Typography variant="body2" color="primary.main" mt={1} fontWeight={600}>
-              🎵 재생 중인 곡이 없으면 자동으로 재생이 시작됩니다!
-            </Typography>
-          </CardContent>
-        </Card>
-      )}
 
       {/* 신청곡 입력 폼 */}
       <Card sx={{ p: 3, bgcolor: '#e3f2fd' }}>
@@ -254,6 +280,24 @@ export default function RequestPage() {
           </Typography>
         </Box>
       </Card>
+
+      {/* Toast 알림 */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={handleToastClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleToastClose} 
+          severity={toast.severity} 
+          sx={{ width: '100%' }}
+          elevation={6}
+          variant="filled"
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 } 

@@ -22,6 +22,10 @@ services:
     env_file:
       - .env
     
+    # 데이터 볼륨 (SQLite 데이터베이스 보존)
+    volumes:
+      - youtube-dj-data:/app/data
+    
     # 헬스체크 설정
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
@@ -43,7 +47,7 @@ networks:
     name: youtube-dj-network
     driver: bridge
 
-# 볼륨 설정 (선택사항 - 데이터 지속성이 필요한 경우)
-# volumes:
-#   youtube-dj-data:
-#     driver: local
+# 볼륨 설정 (SQLite 데이터베이스 지속성)
+volumes:
+  youtube-dj-data:
+    driver: local
