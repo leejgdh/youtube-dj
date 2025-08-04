@@ -309,11 +309,8 @@ io.on('connection', (socket) => {
       const removedSong = serverState.playlist.splice(songIndex, 1)[0];
       saveState();
       
-      // 모든 클라이언트에게 재생목록 업데이트 알림
-      io.emit('playlist-updated', {
-        playlist: serverState.playlist,
-        currentSong: serverState.currentSong
-      });
+      // 재생목록만 업데이트 (현재 재생 중인 곡은 건드리지 않음)
+      io.emit('playlist-only-updated', serverState.playlist);
       
       console.log('재생목록에서 곡 제거됨:', removedSong.title);
     }
@@ -325,11 +322,8 @@ io.on('connection', (socket) => {
       serverState.playlist = newPlaylist;
       saveState();
       
-      // 모든 클라이언트에게 재생목록 업데이트 알림
-      io.emit('playlist-updated', {
-        playlist: serverState.playlist,
-        currentSong: serverState.currentSong
-      });
+      // 재생목록만 업데이트 (현재 재생 중인 곡은 건드리지 않음)
+      io.emit('playlist-only-updated', serverState.playlist);
       
       console.log('재생목록 순서 변경됨');
     }

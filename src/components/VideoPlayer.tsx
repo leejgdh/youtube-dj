@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, memo } from 'react';
 import YouTube from 'react-youtube';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -33,7 +33,7 @@ interface VideoPlayerProps {
   onPlaySpecificSong: (index: number) => void;
 }
 
-export default function VideoPlayer({ 
+function VideoPlayer({ 
   currentSong, 
   isPlaying, 
   isFullscreen, 
@@ -44,6 +44,14 @@ export default function VideoPlayer({
   const playerRef = useRef<YouTubePlayer | null>(null);
   const [showQR, setShowQR] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
+
+  // 컴포넌트 마운트/언마운트 감지
+  useEffect(() => {
+    console.log('🔄 VideoPlayer 컴포넌트 마운트됨');
+    return () => {
+      console.log('❌ VideoPlayer 컴포넌트 언마운트됨');
+    };
+  }, []);
   // 신청곡 URL 생성
   const getRequestUrl = () => {
     if (typeof window !== 'undefined') {
@@ -66,11 +74,19 @@ export default function VideoPlayer({
 
   // currentSong이 변경될 때 YouTube Player 업데이트
   useEffect(() => {
+    console.log('VideoPlayer useEffect 트리거됨:', {
+      currentSong: currentSong?.title,
+      videoId: currentSong?.videoId,
+      playerReady
+    });
+    
     // 모든 조건을 엄격하게 체크 (플레이어 준비 상태 포함)
     if (!currentSong || !currentSong.videoId || !playerRef.current || !playerReady) {
+      console.log('VideoPlayer useEffect 조건 불충족, 스킵');
       return;
     }
 
+    console.log('VideoPlayer loadVideoById 호출:', currentSong.videoId);
     try {
       playerRef.current.loadVideoById(currentSong.videoId);
     } catch (error) {
@@ -85,9 +101,11 @@ export default function VideoPlayer({
   };
 
   const onPlayerReady = (event: YouTubeEvent) => {
+    console.log('🎬 YouTube 플레이어 Ready 이벤트 발생! (새로 마운트됨)');
     playerRef.current = event.target;
     setPlayerReady(true);
     if (isPlaying) {
+      console.log('▶️ 플레이어 Ready 후 자동 재생 시작');
       event.target.playVideo();
     }
   };
@@ -192,7 +210,13 @@ export default function VideoPlayer({
               })
             }}
           >
+            {console.log('📺 YouTube 컴포넌트 렌더링:', { 
+              videoId: currentSong.videoId, 
+              title: currentSong.title,
+              key: currentSong.videoId
+            })}
             <YouTube
+              key={currentSong.videoId} // 동일한 videoId면 리마운트 방지
               videoId={currentSong.videoId}
               opts={{
                 height: '100%',
@@ -267,3 +291,39 @@ export default function VideoPlayer({
     </>
   );
 }
+
+// React.memo를 사용하여 필요한 경우에만 리렌더링
+export default memo(VideoPlayer, (prevProps, nextProps) => {
+  // 기본 상태 비교
+  const currentSongSame = (
+    prevProps.currentSong?.id === nextProps.currentSong?.id &&
+    prevProps.currentSong?.videoId === nextProps.currentSong?.videoId
+  );
+  const isPlayingSame = prevProps.isPlaying === nextProps.isPlaying;
+  const isFullscreenSame = prevProps.isFullscreen === nextProps.isFullscreen;
+  
+  // 풀스크린 모드에서는 playlist 변경도 감지해야 함
+  let playlistSame = true;
+  if (prevProps.isFullscreen || nextProps.isFullscreen) {
+    playlistSame = (
+      prevProps.playlist?.length === nextProps.playlist?.length &&
+      prevProps.playlist?.every((song, index) => song.id === nextProps.playlist?.[index]?.id)
+    );
+  }
+  
+  const shouldSkipRender = currentSongSame && isPlayingSame && isFullscreenSame && playlistSame;
+  
+  console.log('VideoPlayer memo 비교:', {
+    shouldSkipRender,
+    prevCurrentSong: prevProps.currentSong?.title,
+    nextCurrentSong: nextProps.currentSong?.title,
+    prevIsPlaying: prevProps.isPlaying,
+    nextIsPlaying: nextProps.isPlaying,
+    prevPlaylistLength: prevProps.playlist?.length,
+    nextPlaylistLength: nextProps.playlist?.length,
+    isFullscreen: nextProps.isFullscreen,
+    playlistSame
+  });
+  
+  return shouldSkipRender;
+});
