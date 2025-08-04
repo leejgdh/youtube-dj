@@ -172,6 +172,18 @@ export function useSocket() {
       setPendingRequests(requests);
     };
 
+    // 재생목록 업데이트 수신 (관리자 조작용)
+    const handlePlaylistUpdated = (data: { playlist: SongRequest[], currentSong: SongRequest | null }) => {
+      console.log('재생목록 업데이트 수신:', data.playlist.length);
+      setPlaylist(data.playlist || []);
+      setCurrentSong(data.currentSong);
+      if (data.currentSong) {
+        setIsPlaying(true);
+      } else {
+        setIsPlaying(false);
+      }
+    };
+
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('server-state', handleServerState);
@@ -182,6 +194,7 @@ export function useSocket() {
     socket.on('play-state-changed', handlePlayStateChanged);
     socket.on('admin-mode-updated', handleAdminModeUpdated);
     socket.on('pending-requests-updated', handlePendingRequestsUpdated);
+    socket.on('playlist-updated', handlePlaylistUpdated);
     
     listenersRegisteredRef.current = true;
     
@@ -196,6 +209,7 @@ export function useSocket() {
       socket.off('play-state-changed', handlePlayStateChanged);
       socket.off('admin-mode-updated', handleAdminModeUpdated);
       socket.off('pending-requests-updated', handlePendingRequestsUpdated);
+      socket.off('playlist-updated', handlePlaylistUpdated);
       listenersRegisteredRef.current = false;
     };
   }, []);

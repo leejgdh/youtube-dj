@@ -23,10 +23,116 @@ import {
   Check as CheckIcon,
   Close as CloseIcon,
   AdminPanelSettings as AdminIcon,
-  QueueMusic as QueueIcon
+  QueueMusic as QueueIcon,
+  Delete as DeleteIcon,
+  PlayArrow as PlayIcon,
+  DragIndicator as DragIcon,
+  SkipNext as SkipIcon
 } from '@mui/icons-material';
 import { useSocket } from '../../hooks/useSocket';
 import { socket } from '../../lib/socket';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// 드래그 가능한 재생목록 아이템 컴포넌트
+function SortablePlaylistItem({ song, index, onRemove }: { 
+  song: any, 
+  index: number, 
+  onRemove: (id: string) => void 
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: song.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <ListItem
+      ref={setNodeRef}
+      style={style}
+      sx={{
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        mb: 1,
+        bgcolor: 'background.paper',
+        cursor: isDragging ? 'grabbing' : 'grab',
+      }}
+    >
+      <Box
+        {...attributes}
+        {...listeners}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          mr: 2,
+          cursor: 'grab',
+          '&:active': {
+            cursor: 'grabbing',
+          },
+        }}
+      >
+        <DragIcon color="action" />
+      </Box>
+      
+      <ListItemText
+        primary={
+          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+            {index + 1}. {song.title}
+          </Typography>
+        }
+        secondary={
+          <Box>
+            <Typography variant="body2" color="text.secondary">
+              신청자: {song.nickname}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              신청 시간: {new Date(song.timestamp).toLocaleString('ko-KR')}
+            </Typography>
+          </Box>
+        }
+      />
+      
+      <ListItemSecondaryAction>
+        <IconButton
+          edge="end"
+          aria-label="remove"
+          onClick={() => onRemove(song.id)}
+          color="error"
+          size="small"
+        >
+          <DeleteIcon />
+        </IconButton>
+      </ListItemSecondaryAction>
+    </ListItem>
+  );
+}
 
 export default function AdminPage() {
   const [approvalMode, setApprovalMode] = useState(false);
@@ -35,7 +141,15 @@ export default function AdminPage() {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const { isConnected } = useSocket();
+  const { isConnected, playlist, currentSong } = useSocket();
+
+  // 드래그 앤 드롭 센서 설정
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // 페이지 로드 시 인증 상태 확인
   useEffect(() => {
@@ -142,6 +256,34 @@ export default function AdminPage() {
 
   const clearAllPendingRequests = () => {
     socket.emit('clear-pending-requests');
+  };
+
+  // 재생목록에서 곡 제거
+  const handleRemoveFromPlaylist = (songId: string) => {
+    socket.emit('remove-from-playlist', songId);
+  };
+
+  // 현재 재생 중인 곡 건너뛰기
+  const handleSkipCurrentSong = () => {
+    socket.emit('admin-skip-current');
+  };
+
+  // 재생목록 순서 변경
+  const handleReorderPlaylist = (newPlaylist: any[]) => {
+    socket.emit('reorder-playlist', newPlaylist);
+  };
+
+  // 드래그 앤 드롭 핸들러
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = playlist.findIndex((item) => item.id === active.id);
+      const newIndex = playlist.findIndex((item) => item.id === over?.id);
+
+      const newPlaylist = arrayMove(playlist, oldIndex, newIndex);
+      handleReorderPlaylist(newPlaylist);
+    }
   };
 
   // 로그인되지 않은 경우 로그인 폼 표시
@@ -270,7 +412,7 @@ export default function AdminPage() {
 
       {/* 승인 대기 목록 (승인 모드일 때만 표시) */}
       {approvalMode && (
-        <Card>
+        <Card sx={{ mb: 3 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -360,16 +502,103 @@ export default function AdminPage() {
         </Card>
       )}
 
-      {/* 홈으로 돌아가기 */}
-      <Box sx={{ mt: 4, textAlign: 'center' }}>
-        <Button 
-          variant="contained" 
-          href="/"
-          size="large"
-        >
-          메인 페이지로 돌아가기
-        </Button>
-      </Box>
+      {/* 현재 재생 중인 곡 */}
+      {currentSong && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <PlayIcon sx={{ mr: 1, color: 'primary.main' }} />
+                <Typography variant="h6">
+                  현재 재생 중
+                </Typography>
+              </Box>
+              <Button 
+                variant="outlined" 
+                color="primary" 
+                size="small"
+                startIcon={<SkipIcon />}
+                onClick={handleSkipCurrentSong}
+              >
+                건너뛰기
+              </Button>
+            </Box>
+
+            <Divider sx={{ mb: 2 }} />
+
+            <Box sx={{ 
+              p: 2, 
+              border: '2px solid',
+              borderColor: 'primary.main',
+              borderRadius: 1,
+              bgcolor: 'primary.50'
+            }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                {currentSong.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                신청자: {currentSong.nickname}
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 재생목록 관리 */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <QueueIcon sx={{ mr: 1 }} />
+              <Typography variant="h6">
+                재생목록 관리
+              </Typography>
+              <Chip 
+                label={playlist.length} 
+                color="primary" 
+                size="small" 
+                sx={{ ml: 1 }}
+              />
+            </Box>
+          </Box>
+
+          <Divider sx={{ mb: 2 }} />
+
+          {playlist.length === 0 ? (
+            <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              재생목록이 비어있습니다.
+            </Typography>
+          ) : (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                💡 드래그하여 순서를 변경할 수 있습니다
+              </Typography>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={playlist.map(song => song.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <List>
+                    {playlist.map((song, index) => (
+                      <SortablePlaylistItem
+                        key={song.id}
+                        song={song}
+                        index={index}
+                        onRemove={handleRemoveFromPlaylist}
+                      />
+                    ))}
+                  </List>
+                </SortableContext>
+              </DndContext>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
     </Box>
   );
 }

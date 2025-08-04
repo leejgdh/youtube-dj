@@ -302,6 +302,70 @@ io.on('connection', (socket) => {
     console.log(`${clearedCount}개의 대기 요청이 모두 삭제됨`);
   });
 
+  // 재생목록에서 곡 제거
+  socket.on('remove-from-playlist', (songId) => {
+    const songIndex = serverState.playlist.findIndex(song => song.id === songId);
+    if (songIndex !== -1) {
+      const removedSong = serverState.playlist.splice(songIndex, 1)[0];
+      saveState();
+      
+      // 모든 클라이언트에게 재생목록 업데이트 알림
+      io.emit('playlist-updated', {
+        playlist: serverState.playlist,
+        currentSong: serverState.currentSong
+      });
+      
+      console.log('재생목록에서 곡 제거됨:', removedSong.title);
+    }
+  });
+
+  // 재생목록 순서 변경
+  socket.on('reorder-playlist', (newPlaylist) => {
+    if (Array.isArray(newPlaylist)) {
+      serverState.playlist = newPlaylist;
+      saveState();
+      
+      // 모든 클라이언트에게 재생목록 업데이트 알림
+      io.emit('playlist-updated', {
+        playlist: serverState.playlist,
+        currentSong: serverState.currentSong
+      });
+      
+      console.log('재생목록 순서 변경됨');
+    }
+  });
+
+  // 현재 재생 중인 곡 건너뛰기 (관리자용)
+  socket.on('admin-skip-current', () => {
+    if (serverState.currentSong) {
+      // 현재 곡을 히스토리에 추가
+      if (!serverState.playHistory.find(song => song.videoId === serverState.currentSong.videoId)) {
+        serverState.playHistory.push({...serverState.currentSong});
+      }
+      
+      if (serverState.playlist.length > 0) {
+        // 다음 곡으로 넘어가기
+        serverState.currentSong = serverState.playlist.shift();
+        serverState.isPlaying = true;
+      } else {
+        // 재생목록이 비어있으면 재생 중지
+        serverState.currentSong = null;
+        serverState.isPlaying = false;
+      }
+      
+      saveState();
+      
+      // 모든 클라이언트에게 알림
+      io.emit('playlist-updated', {
+        playlist: serverState.playlist,
+        currentSong: serverState.currentSong
+      });
+      
+      console.log('관리자가 현재 곡을 건너뛰었습니다');
+    }
+  });
+
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
