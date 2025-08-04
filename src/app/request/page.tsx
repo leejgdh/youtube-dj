@@ -33,12 +33,22 @@ export default function RequestPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [approvalMode, setApprovalMode] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     socket.connect();
-    socket.on('connect', () => setIsConnected(true));
+    socket.on('connect', () => {
+      setIsConnected(true);
+      // 연결되면 현재 관리자 모드 상태를 요청
+      socket.emit('get-admin-mode');
+    });
     socket.on('disconnect', () => setIsConnected(false));
+    
+    // 관리자 모드 상태 업데이트 수신
+    socket.on('admin-mode-updated', (mode: boolean) => {
+      setApprovalMode(mode);
+    });
     
     // 저장된 닉네임 불러오기
     const savedNickname = localStorage.getItem('youtube-dj-nickname');
@@ -46,7 +56,10 @@ export default function RequestPage() {
       setNickname(savedNickname);
     }
     
-    return () => { socket.disconnect(); };
+    return () => { 
+      socket.off('admin-mode-updated');
+      socket.disconnect(); 
+    };
   }, []);
 
   // YouTube URL에서 videoId 추출
@@ -144,11 +157,32 @@ export default function RequestPage() {
         </Button>
       </Box>
 
-      {/* 연결 상태 */}
+      {/* 연결 상태 및 모드 표시 */}
       <Box textAlign="center" mb={3}>
-        <Typography variant="body1" color={isConnected ? 'success.main' : 'error.main'}>
+        <Typography variant="body1" color={isConnected ? 'success.main' : 'error.main'} mb={1}>
           {isConnected ? '🟢 서버 연결됨' : '🔴 서버 연결 안됨'}
         </Typography>
+        {isConnected && (
+          <Card sx={{ 
+            p: 2, 
+            bgcolor: approvalMode ? '#fff3e0' : '#e8f5e8',
+            border: `2px solid ${approvalMode ? '#ff9800' : '#4caf50'}`
+          }}>
+            <Typography 
+              variant="h6" 
+              color={approvalMode ? 'warning.main' : 'success.main'}
+              fontWeight="bold"
+            >
+              {approvalMode ? '⏳ 승인 모드' : '✅ 자유 모드'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mt={1}>
+              {approvalMode 
+                ? '신청곡은 관리자 승인 후 재생목록에 추가됩니다.'
+                : '신청곡이 바로 재생목록에 추가됩니다.'
+              }
+            </Typography>
+          </Card>
+        )}
       </Box>
 
       {/* 성공 메시지 */}
@@ -160,7 +194,10 @@ export default function RequestPage() {
               신청곡이 등록되었습니다!
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              메인 페이지에서 재생 상태를 확인하세요.
+              {approvalMode 
+                ? '관리자 승인 후 재생목록에 추가됩니다.'
+                : '메인 페이지에서 재생 상태를 확인하세요.'
+              }
             </Typography>
             <Typography variant="body2" color="primary.main" mt={1} fontWeight={600}>
               🎵 재생 중인 곡이 없으면 자동으로 재생이 시작됩니다!
