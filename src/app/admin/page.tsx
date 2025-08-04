@@ -153,11 +153,12 @@ function SortablePlaylistItem({ song, index, onRemove, onBan }: {
           </Typography>
         }
         secondary={
-          <Box>
-            <Typography variant="body2" color="text.secondary">
+          <Box component="span">
+            <Typography variant="body2" color="text.secondary" component="span">
               신청자: {song.nickname}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <br />
+            <Typography variant="caption" color="text.secondary" component="span">
               신청 시간: {song.timestamp instanceof Date ? song.timestamp.toLocaleString('ko-KR') : new Date(song.timestamp).toLocaleString('ko-KR')}
             </Typography>
           </Box>
@@ -654,11 +655,12 @@ export default function AdminPage() {
                         </Typography>
                       }
                       secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
+                        <Box component="span">
+                          <Typography variant="body2" color="text.secondary" component="span">
                             신청자: {request.nickname}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <br />
+                          <Typography variant="caption" color="text.secondary" component="span">
                             신청 시간: {request.timestamp instanceof Date ? request.timestamp.toLocaleString('ko-KR') : new Date(request.timestamp).toLocaleString('ko-KR')}
                           </Typography>
                         </Box>
@@ -830,20 +832,21 @@ export default function AdminPage() {
                 {bannedSongs.map((song: BannedSong) => (
                   <ListItem key={song.id} sx={{ 
                     border: '1px solid', 
-                    borderColor: 'error.light', 
+                    borderColor: 'divider', 
                     borderRadius: 1, 
                     mb: 1, 
-                    bgcolor: 'error.light',
-                    '&:hover': { bgcolor: 'error.main' }
+                    bgcolor: 'background.paper',
+                    '&:hover': { bgcolor: 'action.hover' }
                   }}>
                     <ListItemText
                       primary={song.title}
                       secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
+                        <Box component="span">
+                          <Typography variant="body2" color="text.secondary" component="span">
                             채널: {song.author}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <br />
+                          <Typography variant="caption" color="text.secondary" component="span">
                             등록일: {new Date(song.banned_at).toLocaleString()}
                           </Typography>
                         </Box>
