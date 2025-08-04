@@ -174,6 +174,7 @@ export function useSocket() {
       setPlaylist(newPlaylist || []);
     };
 
+
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('server-state', handleServerState);
@@ -226,7 +227,8 @@ export function useSocket() {
       if (songIndex >= 0 && songIndex < playlist.length) {
         socket.emit('skip-to-song', songIndex);
       }
-    }
+    },
+
   };
 
   return {

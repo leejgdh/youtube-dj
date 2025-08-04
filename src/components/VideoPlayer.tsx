@@ -9,7 +9,6 @@ import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import { socket } from '../lib/socket';
 import FullscreenPlaylist from './FullscreenPlaylist';
-import QRCode from './QRCode';
 import { SongRequest } from '../types';
 
 interface YouTubePlayer {
@@ -31,6 +30,7 @@ interface VideoPlayerProps {
   playlist: SongRequest[];
   onToggleFullscreen: () => void;
   onPlaySpecificSong: (index: number) => void;
+  onSongEnd?: () => void;
 }
 
 function VideoPlayer({ 
@@ -39,31 +39,12 @@ function VideoPlayer({
   isFullscreen, 
   playlist,
   onToggleFullscreen,
-  onPlaySpecificSong
+  onPlaySpecificSong,
+  onSongEnd
 }: VideoPlayerProps) {
   const playerRef = useRef<YouTubePlayer | null>(null);
-  const [showQR, setShowQR] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
 
-  // 신청곡 URL 생성
-  const getRequestUrl = () => {
-    if (typeof window !== 'undefined') {
-      const protocol = window.location.protocol;
-      let hostname = window.location.hostname;
-      
-      // 환경변수에서 IP 주소 가져오기
-      const configuredIP = process.env.NEXT_PUBLIC_HOST_IP;
-      
-      if (configuredIP && (hostname === 'localhost' || hostname === '127.0.0.1')) {
-        hostname = configuredIP;
-      }
-      
-      const port = window.location.port;
-      const portString = port ? `:${port}` : '';
-      return `${protocol}//${hostname}${portString}/request`;
-    }
-    return '';
-  };
 
   // currentSong이 변경될 때 YouTube Player 업데이트
   useEffect(() => {
@@ -78,6 +59,7 @@ function VideoPlayer({
       console.error('YouTube Player 로드 에러:', error);
     }
   }, [currentSong, playerReady]);
+
 
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -95,16 +77,9 @@ function VideoPlayer({
 
   const onPlayerStateChange = (event: YouTubeEvent) => {
     if (event.data === 0) { // 영상 종료
-      
-      // 전체화면 모드에서만 QR코드 표시
-      if (isFullscreen) {
-        setShowQR(true);
-        // 환경변수에서 설정된 시간(초) 후 QR코드 숨김
-        const displayTimeSeconds = parseInt(process.env.NEXT_PUBLIC_QR_DISPLAY_TIME || '5');
-        const displayTime = displayTimeSeconds * 1000;
-        setTimeout(() => {
-          setShowQR(false);
-        }, displayTime);
+      // 곡 종료 이벤트 전달
+      if (onSongEnd) {
+        onSongEnd();
       }
       
       // 항상 다음 곡으로 이동 (서버에서 히스토리 기반 재생 처리)
@@ -235,35 +210,6 @@ function VideoPlayer({
             />
           )}
 
-          {/* 전체화면 모드에서 곡 종료 시 QR코드 표시 */}
-          {isFullscreen && (
-            <Box
-              sx={{
-                position: 'fixed',
-                bottom: showQR ? 20 : -300,
-                right: 20,
-                zIndex: 10000,
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                borderRadius: 2,
-                p: 3,
-                transition: 'bottom 0.5s ease-in-out',
-                backdropFilter: 'blur(10px)',
-                border: '2px solid rgba(255, 255, 255, 0.1)',
-              }}
-            >
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
-                  신청곡을 등록해주세요!
-                </Typography>
-                <QRCode
-                  url={getRequestUrl()}
-                  size={150}
-                  backgroundColor="#FFFFFF"
-                  foregroundColor="#000000"
-                />
-              </Box>
-            </Box>
-          )}
         </CardContent>
       </Card>
     </>

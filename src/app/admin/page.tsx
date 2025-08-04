@@ -13,7 +13,6 @@ import {
   Alert,
   Chip,
   Divider,
-  TextField,
   Tab,
   Tabs,
   Dialog,
@@ -28,7 +27,7 @@ import {
   QueueMusic as QueueIcon,
   PlayArrow as PlayIcon,
   SkipNext as SkipIcon,
-  Block as BlockIcon
+  Block as BlockIcon,
 } from '@mui/icons-material';
 import { useSocket } from '../../hooks/useSocket';
 import { socket } from '../../lib/socket';
@@ -288,6 +287,7 @@ export default function AdminPage() {
     socket.emit('admin-skip-current');
   };
 
+
   // 재생목록 순서 변경
   const handleReorderPlaylist = (newPlaylist: Song[]) => {
     socket.emit('reorder-playlist', newPlaylist);
@@ -342,7 +342,7 @@ export default function AdminPage() {
         </Alert>
       )}
 
-      {/* 모드 설정 카드 */}
+      {/* 모드 설정 및 QR코드 카드 */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
@@ -371,6 +371,7 @@ export default function AdminPage() {
               </Box>
             }
           />
+          
         </CardContent>
       </Card>
 
