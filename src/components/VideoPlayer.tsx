@@ -43,6 +43,7 @@ export default function VideoPlayer({
 }: VideoPlayerProps) {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const [showQR, setShowQR] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
   // 신청곡 URL 생성
   const getRequestUrl = () => {
     if (typeof window !== 'undefined') {
@@ -65,18 +66,17 @@ export default function VideoPlayer({
 
   // currentSong이 변경될 때 YouTube Player 업데이트
   useEffect(() => {
-    // 모든 조건을 엄격하게 체크
-    if (!currentSong || !currentSong.videoId || !playerRef.current) {
+    // 모든 조건을 엄격하게 체크 (플레이어 준비 상태 포함)
+    if (!currentSong || !currentSong.videoId || !playerRef.current || !playerReady) {
       return;
     }
 
     try {
       playerRef.current.loadVideoById(currentSong.videoId);
     } catch (error) {
-      // 오류 발생시 무시
-      console.error(error);
+      console.error('YouTube Player 로드 에러:', error);
     }
-  }, [currentSong]);
+  }, [currentSong, playerReady]);
 
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -86,6 +86,7 @@ export default function VideoPlayer({
 
   const onPlayerReady = (event: YouTubeEvent) => {
     playerRef.current = event.target;
+    setPlayerReady(true);
     if (isPlaying) {
       event.target.playVideo();
     }
