@@ -51,35 +51,15 @@ let serverState = {
   pendingRequests: []
 };
 
-console.log('테스트 데이터로 서버 시작:', {
-  playlist: serverState.playlist.length,
-  currentSong: serverState.currentSong.title,
-  isPlaying: serverState.isPlaying
-});
 
 // 상태 저장 함수
 const saveState = () => {
   serverState.lastUpdated = Date.now();
-  console.log('서버 상태 저장됨:', {
-    playlist: serverState.playlist.length,
-    currentSong: serverState.currentSong?.title || null,
-    isPlaying: serverState.isPlaying
-  });
 };
 
 io.on('connection', (socket) => {
-  console.log('\n=== 새 클라이언트 연결 ===');
-  console.log('Client connected:', socket.id);
-  console.log('현재 서버 상태:', {
-    playlist: serverState.playlist.length,
-    currentSong: serverState.currentSong?.title || 'null',
-    isPlaying: serverState.isPlaying
-  });
-
   // 클라이언트 연결 시 현재 상태 전송
   socket.emit('server-state', serverState);
-  console.log('서버 상태 전송 완료');
-  console.log('========================\n');
 
   // 새로운 신청곡 처리
   socket.on('request-song', (data) => {
@@ -88,7 +68,6 @@ io.on('connection', (socket) => {
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       timestamp: new Date().toISOString()
     };
-    console.log('Song request received:', songWithId);
     
     // 승인모드인지 확인
     if (serverState.adminMode.approvalRequired) {
@@ -99,7 +78,6 @@ io.on('connection', (socket) => {
       // 관리자에게 새로운 승인 요청 알림
       io.emit('pending-requests-updated', serverState.pendingRequests);
       
-      console.log('승인모드 - 요청이 대기 목록에 추가됨:', songWithId.title);
     } else {
       // 자유모드: 바로 재생목록에 추가
       if (!serverState.currentSong) {
@@ -114,7 +92,6 @@ io.on('connection', (socket) => {
       // 모든 클라이언트에게 새로운 신청곡 알림
       io.emit('new-song-request', songWithId);
       
-      console.log('자유모드 - 요청이 바로 재생목록에 추가됨:', songWithId.title);
     }
   });
 
@@ -137,7 +114,6 @@ io.on('connection', (socket) => {
         playlist: serverState.playlist
       });
       
-      console.log('다음 곡 재생:', serverState.currentSong.title);
     } else if (serverState.playHistory.length > 0) {
       // 재생목록이 비어있으면 히스토리에서 순차 재생
       serverState.currentSong = serverState.playHistory[serverState.historyPlayIndex];
@@ -152,7 +128,6 @@ io.on('connection', (socket) => {
         isHistoryPlaying: true
       });
       
-      console.log('히스토리에서 재생:', serverState.currentSong.title, `(${serverState.historyPlayIndex}/${serverState.playHistory.length})`);
     } else {
       serverState.currentSong = null;
       serverState.isPlaying = false;
@@ -160,7 +135,6 @@ io.on('connection', (socket) => {
       
       // 재생목록 종료 알림
       io.emit('playlist-ended');
-      console.log('재생목록 종료 - 히스토리도 비어있음');
     }
   });
 
@@ -185,7 +159,6 @@ io.on('connection', (socket) => {
         playlist: serverState.playlist
       });
       
-      console.log('곡 건너뛰기:', selectedSong.title);
     }
   });
 
@@ -203,7 +176,6 @@ io.on('connection', (socket) => {
       // 모든 클라이언트에게 모드 변경 알림
       io.emit('admin-mode-updated', storedMode);
       
-      console.log(`localStorage에서 관리자 모드 복원: ${storedMode ? '승인모드' : '자유모드'}`);
     }
   });
 
@@ -215,7 +187,6 @@ io.on('connection', (socket) => {
     // 모든 클라이언트에게 모드 변경 알림
     io.emit('admin-mode-updated', approvalRequired);
     
-    console.log(`관리자 모드 변경됨: ${approvalRequired ? '승인모드' : '자유모드'}`);
     
     // 자유모드로 변경시 대기 중인 모든 요청을 자동 승인
     if (!approvalRequired && serverState.pendingRequests.length > 0) {
@@ -241,7 +212,6 @@ io.on('connection', (socket) => {
       // 대기 목록 업데이트
       io.emit('pending-requests-updated', serverState.pendingRequests);
       
-      console.log(`자유모드 전환으로 ${approvedRequests.length}개 요청 자동 승인됨`);
     }
   });
 
@@ -272,7 +242,6 @@ io.on('connection', (socket) => {
       // 대기 목록 업데이트
       io.emit('pending-requests-updated', serverState.pendingRequests);
       
-      console.log('요청 승인됨:', approvedRequest.title);
     }
   });
 
@@ -286,7 +255,6 @@ io.on('connection', (socket) => {
       // 대기 목록 업데이트
       io.emit('pending-requests-updated', serverState.pendingRequests);
       
-      console.log('요청 거부됨:', rejectedRequest.title);
     }
   });
 
@@ -299,7 +267,6 @@ io.on('connection', (socket) => {
     // 대기 목록 업데이트
     io.emit('pending-requests-updated', serverState.pendingRequests);
     
-    console.log(`${clearedCount}개의 대기 요청이 모두 삭제됨`);
   });
 
   // 재생목록에서 곡 제거
@@ -312,7 +279,6 @@ io.on('connection', (socket) => {
       // 재생목록만 업데이트 (현재 재생 중인 곡은 건드리지 않음)
       io.emit('playlist-only-updated', serverState.playlist);
       
-      console.log('재생목록에서 곡 제거됨:', removedSong.title);
     }
   });
 
@@ -325,7 +291,6 @@ io.on('connection', (socket) => {
       // 재생목록만 업데이트 (현재 재생 중인 곡은 건드리지 않음)
       io.emit('playlist-only-updated', serverState.playlist);
       
-      console.log('재생목록 순서 변경됨');
     }
   });
 
@@ -355,13 +320,11 @@ io.on('connection', (socket) => {
         currentSong: serverState.currentSong
       });
       
-      console.log('관리자가 현재 곡을 건너뛰었습니다');
     }
   });
 
 
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
   });
 });
 
@@ -371,10 +334,4 @@ const HOST = process.env.SERVER_HOST || '0.0.0.0';
 
 server.listen(PORT, HOST, () => {
   console.log(`Socket.IO server running on ${HOST}:${PORT}`);
-  console.log('재생목록 상태 관리 서버 시작됨');
-  console.log('환경 설정:', {
-    port: PORT,
-    host: HOST,
-    nodeEnv: process.env.NODE_ENV || 'development'
-  });
 }); 

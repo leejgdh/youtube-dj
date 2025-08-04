@@ -45,13 +45,6 @@ function VideoPlayer({
   const [showQR, setShowQR] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
 
-  // 컴포넌트 마운트/언마운트 감지
-  useEffect(() => {
-    console.log('🔄 VideoPlayer 컴포넌트 마운트됨');
-    return () => {
-      console.log('❌ VideoPlayer 컴포넌트 언마운트됨');
-    };
-  }, []);
   // 신청곡 URL 생성
   const getRequestUrl = () => {
     if (typeof window !== 'undefined') {
@@ -74,19 +67,11 @@ function VideoPlayer({
 
   // currentSong이 변경될 때 YouTube Player 업데이트
   useEffect(() => {
-    console.log('VideoPlayer useEffect 트리거됨:', {
-      currentSong: currentSong?.title,
-      videoId: currentSong?.videoId,
-      playerReady
-    });
-    
     // 모든 조건을 엄격하게 체크 (플레이어 준비 상태 포함)
     if (!currentSong || !currentSong.videoId || !playerRef.current || !playerReady) {
-      console.log('VideoPlayer useEffect 조건 불충족, 스킵');
       return;
     }
 
-    console.log('VideoPlayer loadVideoById 호출:', currentSong.videoId);
     try {
       playerRef.current.loadVideoById(currentSong.videoId);
     } catch (error) {
@@ -101,11 +86,9 @@ function VideoPlayer({
   };
 
   const onPlayerReady = (event: YouTubeEvent) => {
-    console.log('🎬 YouTube 플레이어 Ready 이벤트 발생! (새로 마운트됨)');
     playerRef.current = event.target;
     setPlayerReady(true);
     if (isPlaying) {
-      console.log('▶️ 플레이어 Ready 후 자동 재생 시작');
       event.target.playVideo();
     }
   };
@@ -210,11 +193,6 @@ function VideoPlayer({
               })
             }}
           >
-            {console.log('📺 YouTube 컴포넌트 렌더링:', { 
-              videoId: currentSong.videoId, 
-              title: currentSong.title,
-              key: currentSong.videoId
-            })}
             <YouTube
               key={currentSong.videoId} // 동일한 videoId면 리마운트 방지
               videoId={currentSong.videoId}
@@ -311,19 +289,5 @@ export default memo(VideoPlayer, (prevProps, nextProps) => {
     );
   }
   
-  const shouldSkipRender = currentSongSame && isPlayingSame && isFullscreenSame && playlistSame;
-  
-  console.log('VideoPlayer memo 비교:', {
-    shouldSkipRender,
-    prevCurrentSong: prevProps.currentSong?.title,
-    nextCurrentSong: nextProps.currentSong?.title,
-    prevIsPlaying: prevProps.isPlaying,
-    nextIsPlaying: nextProps.isPlaying,
-    prevPlaylistLength: prevProps.playlist?.length,
-    nextPlaylistLength: nextProps.playlist?.length,
-    isFullscreen: nextProps.isFullscreen,
-    playlistSame
-  });
-  
-  return shouldSkipRender;
+  return currentSongSame && isPlayingSame && isFullscreenSame && playlistSame;
 });
