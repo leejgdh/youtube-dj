@@ -2,13 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import { socket } from '../lib/socket';
 import { SongRequest, ServerState, NextSongData, SongSkippedData } from '../types';
 
+type PendingRequest = SongRequest;
+
 export function useSocket() {
   const [playlist, setPlaylist] = useState<SongRequest[]>([]);
   const [currentSong, setCurrentSong] = useState<SongRequest | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [approvalMode, setApprovalMode] = useState(false);
-  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const listenersRegisteredRef = useRef(false);
   const processedSongsRef = useRef<Set<string>>(new Set());
 
@@ -151,7 +153,7 @@ export function useSocket() {
     };
 
     // 승인 대기 목록 업데이트 수신
-    const handlePendingRequestsUpdated = (requests: any[]) => {
+    const handlePendingRequestsUpdated = (requests: PendingRequest[]) => {
       setPendingRequests(requests);
     };
 

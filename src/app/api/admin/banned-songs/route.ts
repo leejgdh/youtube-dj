@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const db = require('../../../../../lib/database');
 
 // 금지곡 목록 조회
@@ -46,12 +46,12 @@ export async function POST(request: NextRequest) {
       message: '금지곡으로 등록되었습니다.',
       bannedSong 
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error adding banned song:', error);
     return NextResponse.json(
       { 
         success: false, 
-        error: error.message || 'Failed to add banned song' 
+        error: error instanceof Error ? error.message : 'Failed to add banned song' 
       },
       { status: 500 }
     );

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const db = require('../../../../lib/database');
 
 export async function POST(request: NextRequest) {

@@ -46,7 +46,7 @@ export default function QRCode({
         });
         
         setIsLoading(false);
-      } catch (err) {
+      } catch {
         setError('QR 코드를 생성할 수 없습니다.');
         setIsLoading(false);
       }

@@ -9,7 +9,6 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
@@ -64,7 +63,7 @@ export default function RequestPage() {
     }
     
     // 금지곡 에러 처리
-    const handleSongRequestError = (data: { error: string; song: any }) => {
+    const handleSongRequestError = (data: { error: string; song: SongRequest }) => {
       showToast(data.error, 'error');
       setIsLoading(false);
     };

@@ -11,7 +11,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
   IconButton,
   Button,
   Alert,
@@ -36,8 +35,7 @@ import {
   PlayArrow as PlayIcon,
   DragIndicator as DragIcon,
   SkipNext as SkipIcon,
-  Block as BlockIcon,
-  List as ListIcon
+  Block as BlockIcon
 } from '@mui/icons-material';
 import { useSocket } from '../../hooks/useSocket';
 import { socket } from '../../lib/socket';
@@ -61,12 +59,48 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+// 타입 정의 - SongRequest와 호환되도록 수정
+interface Song {
+  id: string;
+  title?: string;  // SongRequest와 동일하게 옵셔널로 변경
+  author?: string;
+  nickname: string;
+  youtubeUrl: string;
+  videoId?: string;  // SongRequest와 동일하게 옵셔널로 변경
+  timestamp: Date;  // SongRequest와 동일하게 Date 타입으로 변경
+  thumbnail?: string;
+}
+
+interface BannedSong {
+  id: number;
+  youtube_url: string;
+  video_id: string;
+  title: string;
+  author: string;
+  banned_at: string;
+  banned_by: string;
+}
+
+interface ToastState {
+  open: boolean;
+  message: string;
+  severity: 'success' | 'error' | 'info' | 'warning';
+}
+
+interface SongBanResult {
+  title: string;
+  removedFromPlaylist: boolean;
+  removedFromPending: boolean;
+  currentSongBanned: boolean;
+  message: string;
+}
+
 // 드래그 가능한 재생목록 아이템 컴포넌트
 function SortablePlaylistItem({ song, index, onRemove, onBan }: { 
-  song: any, 
+  song: Song, 
   index: number, 
   onRemove: (id: string) => void,
-  onBan?: (song: any) => void
+  onBan?: (song: Song) => void
 }) {
   const {
     attributes,
@@ -115,7 +149,7 @@ function SortablePlaylistItem({ song, index, onRemove, onBan }: {
       <ListItemText
         primary={
           <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-            {index + 1}. {song.title}
+            {index + 1}. {song.title || '제목 없음'}
           </Typography>
         }
         secondary={
@@ -124,53 +158,51 @@ function SortablePlaylistItem({ song, index, onRemove, onBan }: {
               신청자: {song.nickname}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              신청 시간: {new Date(song.timestamp).toLocaleString('ko-KR')}
+              신청 시간: {song.timestamp instanceof Date ? song.timestamp.toLocaleString('ko-KR') : new Date(song.timestamp).toLocaleString('ko-KR')}
             </Typography>
           </Box>
         }
       />
       
-      <ListItemSecondaryAction>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {onBan && (
-            <IconButton
-              aria-label="ban"
-              onClick={() => onBan(song)}
-              color="warning"
-              size="small"
-              title="금지곡으로 추가"
-            >
-              <BlockIcon />
-            </IconButton>
-          )}
+      <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+        {onBan && (
           <IconButton
-            edge="end"
-            aria-label="remove"
-            onClick={() => onRemove(song.id)}
-            color="error"
+            aria-label="ban"
+            onClick={() => onBan(song)}
+            color="warning"
             size="small"
-            title="재생목록에서 제거"
+            title="금지곡으로 추가"
           >
-            <DeleteIcon />
+            <BlockIcon />
           </IconButton>
-        </Box>
-      </ListItemSecondaryAction>
+        )}
+        <IconButton
+          edge="end"
+          aria-label="remove"
+          onClick={() => onRemove(song.id)}
+          color="error"
+          size="small"
+          title="재생목록에서 제거"
+        >
+          <DeleteIcon />
+        </IconButton>
+      </Box>
     </ListItem>
   );
 }
 
 export default function AdminPage() {
   const [approvalMode, setApprovalMode] = useState(false);
-  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<Song[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [currentTab, setCurrentTab] = useState(0);
-  const [bannedSongs, setBannedSongs] = useState<any[]>([]);
+  const [bannedSongs, setBannedSongs] = useState<BannedSong[]>([]);
   const [showBanConfirmDialog, setShowBanConfirmDialog] = useState(false);
-  const [songToBan, setSongToBan] = useState<any>(null);
-  const [toast, setToast] = useState<{open: boolean, message: string, severity: 'success' | 'error' | 'info' | 'warning'}>({
+  const [songToBan, setSongToBan] = useState<Song | null>(null);
+  const [toast, setToast] = useState<ToastState>({
     open: false,
     message: '',
     severity: 'info'
@@ -230,7 +262,7 @@ export default function AdminPage() {
       } else {
         setLoginError(data.message || '로그인에 실패했습니다.');
       }
-    } catch (error) {
+    } catch {
       setLoginError('로그인 처리 중 오류가 발생했습니다.');
     } finally {
       setIsLoggingIn(false);
@@ -275,12 +307,12 @@ export default function AdminPage() {
     };
 
     // 대기 요청 목록 업데이트 수신
-    const handlePendingRequestsUpdate = (requests: any[]) => {
+    const handlePendingRequestsUpdate = (requests: Song[]) => {
       setPendingRequests(requests);
     };
 
     // 금지곡 등록 결과 알림 수신
-    const handleSongBanResult = (result: any) => {
+    const handleSongBanResult = (result: SongBanResult) => {
       showToast(result.message, 'success');
     };
 
@@ -309,7 +341,7 @@ export default function AdminPage() {
   };
 
   // 금지곡으로 추가
-  const handleBanSong = async (song: any) => {
+  const handleBanSong = async (song: Song) => {
     try {
       const response = await fetch('/api/admin/banned-songs', {
         method: 'POST',
@@ -318,8 +350,8 @@ export default function AdminPage() {
         },
         body: JSON.stringify({
           youtubeUrl: song.youtubeUrl,
-          videoId: song.videoId,
-          title: song.title,
+          videoId: song.videoId || '',
+          title: song.title || '제목 없음',
           author: song.author || '알 수 없음'
         }),
       });
@@ -332,8 +364,8 @@ export default function AdminPage() {
         // 소켓으로 금지곡 추가 알림 (목록에서 제거하기 위해)
         socket.emit('song-banned', {
           youtubeUrl: song.youtubeUrl,
-          videoId: song.videoId,
-          title: song.title,
+          videoId: song.videoId || '',
+          title: song.title || '제목 없음',
           author: song.author || '알 수 없음'
         });
       } else {
@@ -365,7 +397,7 @@ export default function AdminPage() {
   };
 
   // 금지곡 추가 확인 다이얼로그 열기
-  const openBanConfirmDialog = (song: any) => {
+  const openBanConfirmDialog = (song: Song) => {
     setSongToBan(song);
     setShowBanConfirmDialog(true);
   };
@@ -401,7 +433,7 @@ export default function AdminPage() {
   };
 
   // 재생목록 순서 변경
-  const handleReorderPlaylist = (newPlaylist: any[]) => {
+  const handleReorderPlaylist = (newPlaylist: Song[]) => {
     socket.emit('reorder-playlist', newPlaylist);
   };
 
@@ -522,7 +554,7 @@ export default function AdminPage() {
                 checked={approvalMode}
                 onChange={handleModeToggle}
                 color="primary"
-                size="large"
+                size="medium"
               />
             }
             label={
@@ -546,7 +578,7 @@ export default function AdminPage() {
       <Card sx={{ mb: 3 }}>
         <Tabs 
           value={currentTab} 
-          onChange={(e, newValue) => setCurrentTab(newValue)}
+          onChange={(_, newValue) => setCurrentTab(newValue)}
           variant="fullWidth"
         >
           <Tab 
@@ -604,7 +636,7 @@ export default function AdminPage() {
               </Typography>
             ) : (
               <List>
-                {pendingRequests.map((request, index) => (
+                {pendingRequests.map((request) => (
                   <ListItem 
                     key={request.id}
                     sx={{ 
@@ -618,7 +650,7 @@ export default function AdminPage() {
                     <ListItemText
                       primary={
                         <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                          {request.title}
+                          {request.title || '제목 없음'}
                         </Typography>
                       }
                       secondary={
@@ -627,43 +659,41 @@ export default function AdminPage() {
                             신청자: {request.nickname}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            신청 시간: {new Date(request.timestamp).toLocaleString('ko-KR')}
+                            신청 시간: {request.timestamp instanceof Date ? request.timestamp.toLocaleString('ko-KR') : new Date(request.timestamp).toLocaleString('ko-KR')}
                           </Typography>
                         </Box>
                       }
                     />
-                    <ListItemSecondaryAction>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <IconButton
-                          aria-label="approve"
-                          onClick={() => handleApproveRequest(request.id)}
-                          color="success"
-                          size="small"
-                          title="승인"
-                        >
-                          <CheckIcon />
-                        </IconButton>
-                        <IconButton
-                          aria-label="ban"
-                          onClick={() => openBanConfirmDialog(request)}
-                          color="warning"
-                          size="small"
-                          title="금지곡으로 추가"
-                        >
-                          <BlockIcon />
-                        </IconButton>
-                        <IconButton
-                          edge="end"
-                          aria-label="reject"
-                          onClick={() => handleRejectRequest(request.id)}
-                          color="error"
-                          size="small"
-                          title="거부"
-                        >
-                          <CloseIcon />
-                        </IconButton>
-                      </Box>
-                    </ListItemSecondaryAction>
+                    <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+                      <IconButton
+                        aria-label="approve"
+                        onClick={() => handleApproveRequest(request.id)}
+                        color="success"
+                        size="small"
+                        title="승인"
+                      >
+                        <CheckIcon />
+                      </IconButton>
+                      <IconButton
+                        aria-label="ban"
+                        onClick={() => openBanConfirmDialog(request)}
+                        color="warning"
+                        size="small"
+                        title="금지곡으로 추가"
+                      >
+                        <BlockIcon />
+                      </IconButton>
+                      <IconButton
+                        edge="end"
+                        aria-label="reject"
+                        onClick={() => handleRejectRequest(request.id)}
+                        color="error"
+                        size="small"
+                        title="거부"
+                      >
+                        <CloseIcon />
+                      </IconButton>
+                    </Box>
                   </ListItem>
                 ))}
               </List>
@@ -704,7 +734,7 @@ export default function AdminPage() {
               bgcolor: 'primary.50'
             }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                {currentSong.title}
+                {currentSong.title || '제목 없음'}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 신청자: {currentSong.nickname}
@@ -797,7 +827,7 @@ export default function AdminPage() {
               </Typography>
             ) : (
               <List>
-                {bannedSongs.map((song: any) => (
+                {bannedSongs.map((song: BannedSong) => (
                   <ListItem key={song.id} sx={{ 
                     border: '1px solid', 
                     borderColor: 'error.light', 
@@ -819,16 +849,15 @@ export default function AdminPage() {
                         </Box>
                       }
                     />
-                    <ListItemSecondaryAction>
-                      <IconButton
-                        edge="end"
-                        color="error"
-                        onClick={() => handleUnbanSong(song.id)}
-                        title="금지곡에서 제거"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </ListItemSecondaryAction>
+                    <IconButton
+                      edge="end"
+                      color="error"
+                      onClick={() => handleUnbanSong(song.id)}
+                      title="금지곡에서 제거"
+                      sx={{ ml: 'auto' }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
                   </ListItem>
                 ))}
               </List>
@@ -854,7 +883,7 @@ export default function AdminPage() {
           {songToBan && (
             <Box>
               <Typography variant="h6" gutterBottom>
-                {songToBan.title}
+                {songToBan.title || '제목 없음'}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 채널: {songToBan.author || '알 수 없음'}
@@ -873,9 +902,10 @@ export default function AdminPage() {
             취소
           </Button>
           <Button 
-            onClick={() => handleBanSong(songToBan)} 
+            onClick={() => songToBan && handleBanSong(songToBan)} 
             color="error" 
             variant="contained"
+            disabled={!songToBan}
           >
             금지곡으로 등록
           </Button>
