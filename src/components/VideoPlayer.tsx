@@ -106,6 +106,7 @@ export default function VideoPlayer({
         }, displayTime);
       }
       
+      // 항상 다음 곡으로 이동 (서버에서 히스토리 기반 재생 처리)
       socket.emit('play-next-song');
     } else if (event.data === 1) { // 재생 중
       socket.emit('update-play-state', true);

@@ -38,7 +38,11 @@ let serverState = {
     youtubeUrl: 'https://www.youtube.com/watch?v=kJQP7kiw5Fk'
   },
   isPlaying: true,
-  lastUpdated: Date.now()
+  lastUpdated: Date.now(),
+  // 재생 히스토리 (과거에 재생된 모든 곡들)
+  playHistory: [],
+  // 히스토리 재생 인덱스 (순차 반복용)
+  historyPlayIndex: 0
 };
 
 console.log('테스트 데이터로 서버 시작:', {
@@ -96,7 +100,13 @@ io.on('connection', (socket) => {
 
   // 다음 곡 재생 요청
   socket.on('play-next-song', () => {
+    // 현재 곡을 히스토리에 추가 (동일한 videoId 중복 방지)
+    if (serverState.currentSong && !serverState.playHistory.find(song => song.videoId === serverState.currentSong.videoId)) {
+      serverState.playHistory.push({...serverState.currentSong});
+    }
+    
     if (serverState.playlist.length > 0) {
+      // 재생목록에서 다음 곡 가져오기
       serverState.currentSong = serverState.playlist.shift();
       serverState.isPlaying = true;
       saveState();
@@ -108,6 +118,21 @@ io.on('connection', (socket) => {
       });
       
       console.log('다음 곡 재생:', serverState.currentSong.title);
+    } else if (serverState.playHistory.length > 0) {
+      // 재생목록이 비어있으면 히스토리에서 순차 재생
+      serverState.currentSong = serverState.playHistory[serverState.historyPlayIndex];
+      serverState.historyPlayIndex = (serverState.historyPlayIndex + 1) % serverState.playHistory.length;
+      serverState.isPlaying = true;
+      saveState();
+      
+      // 모든 클라이언트에게 히스토리 재생 알림
+      io.emit('next-song-playing', {
+        currentSong: serverState.currentSong,
+        playlist: serverState.playlist,
+        isHistoryPlaying: true
+      });
+      
+      console.log('히스토리에서 재생:', serverState.currentSong.title, `(${serverState.historyPlayIndex}/${serverState.playHistory.length})`);
     } else {
       serverState.currentSong = null;
       serverState.isPlaying = false;
@@ -115,7 +140,7 @@ io.on('connection', (socket) => {
       
       // 재생목록 종료 알림
       io.emit('playlist-ended');
-      console.log('재생목록 종료');
+      console.log('재생목록 종료 - 히스토리도 비어있음');
     }
   });
 
