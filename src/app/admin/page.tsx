@@ -16,7 +16,8 @@ import {
   Button,
   Alert,
   Chip,
-  Divider
+  Divider,
+  TextField
 } from '@mui/material';
 import {
   Check as CheckIcon,
@@ -30,10 +31,61 @@ import { socket } from '../../lib/socket';
 export default function AdminPage() {
   const [approvalMode, setApprovalMode] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const { isConnected } = useSocket();
+
+  // 페이지 로드 시 인증 상태 확인
+  useEffect(() => {
+    const authStatus = localStorage.getItem('youtube-dj-admin-auth');
+    if (authStatus === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  // 로그인 처리
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError('');
+
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(loginForm),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setIsAuthenticated(true);
+        localStorage.setItem('youtube-dj-admin-auth', 'true');
+        setLoginForm({ username: '', password: '' });
+      } else {
+        setLoginError(data.message || '로그인에 실패했습니다.');
+      }
+    } catch (error) {
+      setLoginError('로그인 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // 로그아웃 처리
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('youtube-dj-admin-auth');
+    setLoginForm({ username: '', password: '' });
+  };
 
   // Socket.IO를 통해 관리자 상태 및 대기 요청 관리
   useEffect(() => {
+    if (!isAuthenticated) return;
     socket.connect();
     
     // localStorage에서 저장된 모드 확인
@@ -70,7 +122,7 @@ export default function AdminPage() {
       socket.off('admin-mode-updated', handleAdminModeUpdate);
       socket.off('pending-requests-updated', handlePendingRequestsUpdate);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const handleModeToggle = () => {
     const newMode = !approvalMode;
@@ -92,14 +144,89 @@ export default function AdminPage() {
     socket.emit('clear-pending-requests');
   };
 
+  // 로그인되지 않은 경우 로그인 폼 표시
+  if (!isAuthenticated) {
+    return (
+      <Box sx={{ maxWidth: 400, mx: 'auto', p: 3, mt: 8 }}>
+        <Card sx={{ p: 4 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3 }}>
+            <AdminIcon sx={{ mr: 2, fontSize: 32, color: 'primary.main' }} />
+            <Typography variant="h4" component="h1">
+              관리자 로그인
+            </Typography>
+          </Box>
+
+          <Box component="form" onSubmit={handleLogin} sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="아이디"
+              value={loginForm.username}
+              onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+              margin="normal"
+              required
+              disabled={isLoggingIn}
+              autoComplete="username"
+            />
+            <TextField
+              fullWidth
+              label="비밀번호"
+              type="password"
+              value={loginForm.password}
+              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+              margin="normal"
+              required
+              disabled={isLoggingIn}
+              autoComplete="current-password"
+            />
+
+            {loginError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {loginError}
+              </Alert>
+            )}
+
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              sx={{ mt: 3, mb: 2 }}
+              disabled={isLoggingIn}
+            >
+              {isLoggingIn ? '로그인 중...' : '로그인'}
+            </Button>
+          </Box>
+
+          <Box sx={{ mt: 4, textAlign: 'center' }}>
+            <Button 
+              variant="text" 
+              href="/"
+              size="small"
+            >
+              메인 페이지로 돌아가기
+            </Button>
+          </Box>
+        </Card>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
       {/* 헤더 */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <AdminIcon sx={{ mr: 2, fontSize: 32, color: 'primary.main' }} />
-        <Typography variant="h4" component="h1">
-          관리자 페이지
-        </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <AdminIcon sx={{ mr: 2, fontSize: 32, color: 'primary.main' }} />
+          <Typography variant="h4" component="h1">
+            관리자 페이지
+          </Typography>
+        </Box>
+        <Button 
+          variant="outlined" 
+          color="secondary" 
+          onClick={handleLogout}
+        >
+          로그아웃
+        </Button>
       </Box>
 
       {/* 연결 상태 표시 */}
