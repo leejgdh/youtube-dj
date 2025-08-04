@@ -117,6 +117,10 @@ io.on('connection', (socket) => {
 
   // 다음 곡 재생 요청
   socket.on('play-next-song', () => {
+    console.log('Play next song requested');
+    console.log('Current playlist length:', serverState.playlist.length);
+    console.log('Current history length:', serverState.playHistory.length);
+    
     // 현재 곡을 히스토리에 추가 (동일한 videoId 중복 방지)
     if (serverState.currentSong && !serverState.playHistory.find(song => song.videoId === serverState.currentSong.videoId)) {
       serverState.playHistory.push({...serverState.currentSong});

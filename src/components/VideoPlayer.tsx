@@ -68,6 +68,7 @@ function VideoPlayer({
   };
 
   const onPlayerReady = (event: YouTubeEvent) => {
+    console.log('YouTube Player ready');
     playerRef.current = event.target;
     setPlayerReady(true);
     if (isPlaying) {
@@ -76,7 +77,9 @@ function VideoPlayer({
   };
 
   const onPlayerStateChange = (event: YouTubeEvent) => {
+    console.log('YouTube Player state changed:', event.data);
     if (event.data === 0) { // 영상 종료
+      console.log('Video ended - triggering next song');
       // 곡 종료 이벤트 전달
       if (onSongEnd) {
         onSongEnd();

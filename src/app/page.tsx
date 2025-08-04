@@ -48,7 +48,9 @@ export default function YouTubeDJ() {
   };
 
   const handleSongEnd = () => {
-    setSongEnded(prev => !prev); // 상태를 토글해서 매번 다른 값으로 만들어 useEffect 트리거
+    setSongEnded(true);
+    // 잠시 후 상태 리셋 (다음 곡이 시작되면서 QR이 다시 트리거되지 않도록)
+    setTimeout(() => setSongEnded(false), 1000);
   };
 
   // 로그인되지 않은 경우 로그인 폼 표시

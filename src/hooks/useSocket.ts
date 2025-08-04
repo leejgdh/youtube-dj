@@ -98,6 +98,7 @@ export function useSocket() {
 
     // 다음 곡 재생 수신
     const handleNextSongPlaying = (data: NextSongData) => {
+      console.log('Next song playing received:', data);
       
       if (data.currentSong && typeof data.currentSong === 'object') {
         setCurrentSong(data.currentSong);
