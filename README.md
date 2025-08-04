@@ -26,7 +26,7 @@ cp .env.example .env
 
 **.env 파일 수정 (선택사항):**
 - 기본 설정으로 IP 자동 감지됨
-- 특정 IP 강제 사용시에만 `NEXT_PUBLIC_SOCKET_URL` 주석 해제
+- 필요시 포트와 WiFi 설정만 변경
 
 ### 2단계: 서비스 실행
 
@@ -90,13 +90,14 @@ SOCKET_URL=http://192.168.0.45:8801 WEB_PORT=8800 SOCKET_PORT=8801 docker-compos
 
 ## ⚙️ 환경변수 설명
 
+**핵심 설정:**
 | 변수명 | 설명 | 기본값 | 예시 |
 |--------|------|--------|------|
-| `SOCKET_URL` | 클라이언트가 접속할 소켓 서버 URL | `http://localhost:3001` | `http://192.168.0.45:8801` |
-| `WEB_PORT` | 웹 서비스 외부 포트 | `3000` | `8800` |
-| `SOCKET_PORT` | 소켓 서버 외부 포트 | `3001` | `8801` |
-| `SERVER_HOST` | 서버 바인딩 주소 | `0.0.0.0` | `0.0.0.0` |
-| `SOCKET_SERVER_PORT` | 컨테이너 내부 소켓 포트 | `3001` | `3001` |
+| `WEB_PORT` | 웹 서비스 외부 포트 | `8800` | `8800` |
+| `SOCKET_PORT` | 소켓 서버 외부 포트 | `8801` | `8801` |
+| `NEXT_PUBLIC_HOST_IP` | QR 코드용 호스트 IP | - | `192.168.0.9` |
+| `ADMIN_USERNAME` | 관리자 아이디 | `admin` | `admin` |
+| `ADMIN_PASSWORD` | 관리자 비밀번호 | `admin123` | `mypass` |
 
 **Docker 이미지 관련 (선택사항):**
 | 변수명 | 설명 | 기본값 |

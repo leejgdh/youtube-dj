@@ -70,12 +70,12 @@ Socket.IO Events ← YouTube Player Events
 ## Environment Configuration
 
 The `.env` file controls deployment settings:
-- `NEXT_PUBLIC_SOCKET_PORT`: Socket server external port (default: 8801)
-- `WEB_PORT`/`SOCKET_PORT`: External port mappings for Docker
-- `NEXT_PUBLIC_SOCKET_URL`: Optional fixed socket URL (auto-detects host IP if not set)
-- Registry settings for production image deployment
+- `WEB_PORT`/`SOCKET_PORT`: External port mappings for Docker (default: 8800/8801)
+- `NEXT_PUBLIC_HOST_IP`: Host IP for QR code generation
+- WiFi settings for QR code display
+- Admin credentials and registry settings for production
 
-**Automatic IP Detection**: Socket connection automatically uses the browser's current hostname and configured port. Only set `NEXT_PUBLIC_SOCKET_URL` if you need to override this behavior.
+**Automatic Socket Connection**: Socket connection automatically uses the browser's current hostname and port 8801. No manual configuration needed.
 
 ## Key Implementation Details
 

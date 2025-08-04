@@ -328,9 +328,9 @@ io.on('connection', (socket) => {
   });
 });
 
-// 환경변수에서 포트 설정 가져오기
-const PORT = process.env.SOCKET_SERVER_PORT || process.env.PORT || 3001;
-const HOST = process.env.SERVER_HOST || '0.0.0.0';
+// 포트 설정
+const PORT = process.env.PORT || 3001;
+const HOST = '0.0.0.0';
 
 server.listen(PORT, HOST, () => {
   console.log(`Socket.IO server running on ${HOST}:${PORT}`);
