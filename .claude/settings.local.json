@@ -6,7 +6,8 @@
       "Bash(echo:*)",
       "Bash(npm run lint)",
       "Bash(mv:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(docker build:*)"
     ],
     "deny": []
   }

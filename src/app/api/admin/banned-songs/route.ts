@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const db = require('../../../../../lib/database');
 
 // 금지곡 목록 조회
 export async function GET() {
   try {
+    // Dynamic import로 SQLite 로드
+    const db = require('../../../../../lib/database');
+    
     // 데이터베이스 초기화 확인
     await db.initDatabase();
     const bannedSongs = await db.getBannedSongs();
@@ -21,6 +22,9 @@ export async function GET() {
 // 금지곡 추가
 export async function POST(request: NextRequest) {
   try {
+    // Dynamic import로 SQLite 로드
+    const db = require('../../../../../lib/database');
+    
     // 데이터베이스 초기화 확인
     await db.initDatabase();
     
@@ -61,6 +65,9 @@ export async function POST(request: NextRequest) {
 // 금지곡 제거
 export async function DELETE(request: NextRequest) {
   try {
+    // Dynamic import로 SQLite 로드
+    const db = require('../../../../../lib/database');
+    
     // 데이터베이스 초기화 확인
     await db.initDatabase();
     
