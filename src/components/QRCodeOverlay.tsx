@@ -17,17 +17,33 @@ export default function QRCodeOverlay({
 }: QRCodeOverlayProps) {
   const [showQR, setShowQR] = useState(false);
 
+  const [networkIP, setNetworkIP] = useState<string>('');
+
+  // 네트워크 IP 자동 감지
+  useEffect(() => {
+    const getNetworkIP = async () => {
+      try {
+        const response = await fetch('/api/network-ip');
+        const data = await response.json();
+        setNetworkIP(data.ip);
+      } catch (error) {
+        console.error('Failed to get network IP:', error);
+        setNetworkIP('localhost');
+      }
+    };
+
+    getNetworkIP();
+  }, []);
+
   // 신청곡 URL 생성
   const getRequestUrl = () => {
     if (typeof window !== 'undefined') {
       const protocol = window.location.protocol;
       let hostname = window.location.hostname;
       
-      // 환경변수에서 IP 주소 가져오기
-      const configuredIP = process.env.NEXT_PUBLIC_HOST_IP;
-      
-      if (configuredIP && (hostname === 'localhost' || hostname === '127.0.0.1')) {
-        hostname = configuredIP;
+      // localhost인 경우 자동 감지된 네트워크 IP 사용
+      if ((hostname === 'localhost' || hostname === '127.0.0.1') && networkIP && networkIP !== 'localhost') {
+        hostname = networkIP;
       }
       
       const port = window.location.port;
