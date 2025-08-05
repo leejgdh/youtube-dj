@@ -177,12 +177,14 @@ function VideoPlayer({
               opts={{
                 height: '100%',
                 width: '100%',
+                host: 'https://www.youtube-nocookie.com', // 더 관대한 정책
                 playerVars: {
                   autoplay: 1,
                   controls: 1,
                   modestbranding: 1,
                   rel: 0,
                   fs: 1,
+                  origin: typeof window !== 'undefined' ? window.location.origin : undefined,
                 },
               }}
               onReady={onPlayerReady}
