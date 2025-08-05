@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.vscode
+README.md
+CHANGELOG.md
+*.log
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+data/
+*.md
+.vercel

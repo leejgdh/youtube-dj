@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    // Dynamic import로 SQLite 로드
-    const db = require('../../../../lib/database');
+    // JSON 데이터베이스 로드
+    const db = require('../../../../lib/database-json');
     
     // 데이터베이스 초기화 확인
     await db.initDatabase();

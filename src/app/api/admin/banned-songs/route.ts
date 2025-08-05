@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 // 금지곡 목록 조회
 export async function GET() {
   try {
-    // Dynamic import로 SQLite 로드
-    const db = require('../../../../../lib/database');
+    // JSON 데이터베이스 로드
+    const db = require('../../../../../lib/database-json');
     
     // 데이터베이스 초기화 확인
     await db.initDatabase();
@@ -22,8 +22,8 @@ export async function GET() {
 // 금지곡 추가
 export async function POST(request: NextRequest) {
   try {
-    // Dynamic import로 SQLite 로드
-    const db = require('../../../../../lib/database');
+    // JSON 데이터베이스 로드
+    const db = require('../../../../../lib/database-json');
     
     // 데이터베이스 초기화 확인
     await db.initDatabase();
@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
 // 금지곡 제거
 export async function DELETE(request: NextRequest) {
   try {
-    // Dynamic import로 SQLite 로드
-    const db = require('../../../../../lib/database');
+    // JSON 데이터베이스 로드
+    const db = require('../../../../../lib/database-json');
     
     // 데이터베이스 초기화 확인
     await db.initDatabase();
